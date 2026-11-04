@@ -299,7 +299,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0433';
+const BUILD = '20261105-0437';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -775,6 +775,40 @@ function tree(x,z,s=1){
  [-48,-12],[48,-12],[-48,36],[48,36],[-20,-88],[20,-88],[-70,-48],[70,48],
  [50,-84],[68,-60],[54,-32],[72,-16],[-100,-80],[-72,-62],[-116,-38],
  [-38,-70],[38,-24],[-38,70],[100,48],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
+
+/* Bunga hias di tepi jalan utama: titik-titik warna kecil di sepanjang
+   sabuk jalan (satu InstancedMesh, tanpa tabrakan, tidak menghalangi jalan).
+   Posisi deterministik supaya tampil sama di setiap muat ulang. */
+{
+  const spots = [];
+  let seed = 12345;
+  const rnd = ()=>{ seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const along = (x0, z0, x1, z1, side)=>{
+    const len = Math.hypot(x1 - x0, z1 - z0);
+    const nx = -(z1 - z0) / len, nz = (x1 - x0) / len;
+    for(let d = 3; d < len - 3; d += 6){
+      const f = d / len, off = side * (4.8 + rnd() * 1.2);
+      spots.push([x0 + (x1 - x0) * f + nx * off + (rnd() - .5) * 1.4,
+                  z0 + (z1 - z0) * f + nz * off + (rnd() - .5) * 1.4]);
+    }
+  };
+  for(const z of [-48, 0, 48]){ along(-120, z, 120, z, 1); along(-120, z, 120, z, -1); }
+  for(const x of [-43, 43]){ along(x, -84, x, 84, 1); along(x, -84, x, 84, -1); }
+  const COLORS = [0xE86A9C, 0xE8D27A, 0xFDFCF8, 0xE86A2C, 0x8D81C4];
+  const geo = new THREE.SphereGeometry(.22, 6, 5);
+  const mat = new THREE.MeshLambertMaterial({ color:0xffffff });
+  const im = new THREE.InstancedMesh(geo, mat, spots.length);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  spots.forEach(([x, z], i)=>{
+    const s = .8 + rnd() * .7;
+    dummy.position.set(x, .22, z); dummy.scale.set(s, s * .8, s);
+    dummy.updateMatrix(); im.setMatrixAt(i, dummy.matrix);
+    im.setColorAt(i, col.setHex(COLORS[i % COLORS.length]));
+  });
+  im.instanceMatrix.needsUpdate = true;
+  if(im.instanceColor) im.instanceColor.needsUpdate = true;
+  scene.add(im);
+}
 
 /* ================= PENGATURAN DEVELOPER: DIALOG KARAKTER =================
    Kalimat yang muncul di bubble saat tombol Sapa ditekan di dekat
