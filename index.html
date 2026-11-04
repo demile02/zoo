@@ -59,6 +59,10 @@
   #muteBtn{position:absolute;z-index:8;top:12px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
   #mapBtn{position:absolute;z-index:8;top:12px;right:64px;height:44px;padding:0 16px;border-radius:999px;background:rgba(253,252,248,.94);border:0;font:inherit;font-weight:800;font-size:13.5px;color:var(--ink);box-shadow:var(--card-shadow);cursor:pointer}
   #helpBtn{position:absolute;z-index:8;top:64px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font:inherit;font-size:18px;font-weight:800;color:#6F66A3;box-shadow:var(--card-shadow);cursor:pointer}
+  #camBtn{position:absolute;z-index:8;top:116px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
+  #camBtn.on{background:#6F66A3;color:#fff}
+  #app.content .hud,#app.content #card,#app.content #bubble,#app.content #talkBtn,#app.content #jumpBtn,#app.content #muteBtn,#app.content #mapBtn,#app.content #helpBtn,#app.content #social{display:none!important}
+  #app.content #joy{opacity:0!important}
   #welcome{position:absolute;inset:0;z-index:35;background:rgba(46,42,36,.5);display:none;place-items:center;padding:16px}
   #welcome.show{display:grid}
   #welcome .wpanel{background:var(--paper);border-radius:28px;box-shadow:var(--card-shadow);padding:26px 24px;width:min(92vw,430px);text-align:center}
@@ -115,12 +119,13 @@
 <button id="muteBtn" type="button" aria-label="Suara">🔊</button>
 <button id="mapBtn" type="button">🗺️ Denah</button>
 <button id="helpBtn" type="button" aria-label="Bantuan">?</button>
+<button id="camBtn" type="button" aria-label="Mode konten" aria-pressed="false" title="Mode konten: sembunyikan HUD (tekan lagi untuk memunculkan)">📷</button>
 <div id="social"></div>
 <div id="welcome">
   <div class="wpanel">
     <div class="wword">Selamat datang!</div>
     <div class="wbody">Ini Kebun Binatang Komen, zoo yang dibangun dari komentar. Setiap hari satu hewan baru datang dari komentar paling disukai, dan namanya adalah nama pengusulnya.</div>
-    <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat</div>
+    <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat · tombol 📷 buat mode konten (HUD hilang, cocok buat screenshot)</div>
     <button class="wgo" id="welcomeGo" type="button">Mulai jalan-jalan</button>
   </div>
 </div>
@@ -294,7 +299,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0400';
+const BUILD = '20261105-0423';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1186,6 +1191,18 @@ function setWelcome(open){
 }
 document.getElementById('welcomeGo').addEventListener('click', ()=> setWelcome(false));
 document.getElementById('helpBtn').addEventListener('click', ()=> setWelcome(true));
+
+/* Mode konten: tombol kamera menyembunyikan semua HUD (buat bahan
+   screenshot/video promosi); tekan lagi (atau tombol C) untuk memunculkan.
+   Tombol kameranya sendiri tetap tampil supaya bisa ditekan lagi. */
+const camBtn = document.getElementById('camBtn');
+function setContent(on){
+  appEl.classList.toggle('content', on);
+  camBtn.classList.toggle('on', on);
+  camBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+camBtn.addEventListener('click', ()=> setContent(!appEl.classList.contains('content')));
+addEventListener('keydown', e=>{ if(e.key.toLowerCase() === 'c') setContent(!appEl.classList.contains('content')); });
 try{ if(!localStorage.getItem('zoo-welcomed')) setWelcome(true); }catch(_){}
 
 /* Tautan akun: isi alamatnya di sini, tombolnya muncul otomatis.
