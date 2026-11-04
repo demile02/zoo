@@ -14,7 +14,7 @@
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#9CC184;font-family:'Outfit',sans-serif;color:var(--ink)}
   #scene{position:fixed;inset:0;display:block;touch-action:none}
-  .hud{position:fixed;z-index:10}
+  .hud{position:fixed;z-index:10;pointer-events:none}
   #brand{top:14px;left:14px;background:var(--paper);border-radius:20px;padding:10px 16px 12px;box-shadow:var(--card-shadow);max-width:min(78vw,340px)}
   #brand .wordmark{font-family:'Reenie Beanie',cursive;font-size:30px;line-height:.95;color:var(--leaf)}
   #brand .sub{font-size:12.5px;font-weight:600;letter-spacing:.02em;margin-top:2px}
@@ -27,9 +27,13 @@
   #card h2{font-size:24px;font-weight:800;line-height:1.1;margin:2px 0 4px}
   #card p{font-size:14px;line-height:1.45}
   #card .from{margin-top:9px;font-size:12.5px;font-weight:600;color:#6F66A3}
-  #joy{position:fixed;z-index:10;left:22px;bottom:24px;width:118px;height:118px;border-radius:50%;background:rgba(253,252,248,.35);border:2px solid rgba(253,252,248,.65);display:none}
-  #joyKnob{position:absolute;left:50%;top:50%;width:50px;height:50px;border-radius:50%;background:var(--paper);box-shadow:0 4px 14px rgba(46,42,36,.3);transform:translate(-50%,-50%)}
-  @media (pointer:coarse){ #joy{display:block} #hint .keys{display:none} }
+  #touchUI{position:fixed;inset:0;z-index:5;touch-action:none;user-select:none;-webkit-user-select:none}
+  #joy{position:fixed;z-index:6;width:124px;height:124px;border-radius:50%;transform:translate(-50%,-50%);background:rgba(253,252,248,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:2px solid rgba(111,102,163,.45);box-shadow:inset 0 2px 10px rgba(253,252,248,.8),inset 0 -8px 18px rgba(111,102,163,.12),0 10px 26px rgba(46,42,36,.18);opacity:0;transition:opacity .18s ease;pointer-events:none}
+  #joy.on{opacity:1}
+  #joyKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;border-radius:50%;background:#6F66A3;box-shadow:0 8px 20px rgba(46,42,36,.35),inset 0 2px 3px rgba(253,252,248,.45),inset 0 -4px 8px rgba(46,42,36,.25);transform:translate(-50%,-50%)}
+  #joyKnob.rel{transition:transform .18s ease}
+  #hint .touch{display:none}
+  @media (pointer:coarse){ #hint .keys{display:none} #hint .touch{display:inline} }
   #err{position:fixed;inset:0;display:none;place-items:center;background:var(--paper);z-index:50;padding:24px;text-align:center}
   #err .box{max-width:420px}
   #err h1{font-family:'Reenie Beanie',cursive;font-size:40px;color:var(--leaf)}
@@ -46,7 +50,8 @@
 </div>
 
 <div class="hud" id="hint">
-  <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> atau tombol panah buat jalan<br></span>
+  <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> buat jalan, seret layar buat melihat sekeliling<br></span>
+  <span class="touch">Analog di sisi kiri buat jalan, seret layar buat menentukan arah<br></span>
   Dekati petak kandang buat kenalan sama penghuninya
 </div>
 
@@ -57,6 +62,7 @@
   <div class="from" id="cardFrom"></div>
 </div>
 
+<div id="touchUI"></div>
 <div id="joy"><div id="joyKnob"></div></div>
 
 <div id="err"><div class="box">
@@ -409,23 +415,55 @@ scene.add(visitor);
 const keys = {};
 addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; });
 addEventListener('keyup',   e=>{ keys[e.key.toLowerCase()] = false; });
+/* Kontrol ala FPS: analog melayang di sisi kiri buat jalan (relatif arah pandang),
+   seret layar di mana pun buat menentukan arah. Dua sentuhan bisa jalan bersamaan. */
 const joyVec = { x:0, y:0 };
+let heading = Math.PI;
 {
+  const ui = document.getElementById('touchUI');
   const joy = document.getElementById('joy'), knob = document.getElementById('joyKnob');
-  let pid = null;
+  const TRAVEL = 46, DEAD = 0.14, SENS = 0.0042;
+  let stickId = null, lookId = null, ox = 0, oy = 0, lx = 0;
   const setKnob = (dx,dy)=>{ knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; };
-  joy.addEventListener('pointerdown', e=>{ pid = e.pointerId; joy.setPointerCapture(pid); });
-  joy.addEventListener('pointermove', e=>{
-    if(e.pointerId !== pid) return;
-    const r = joy.getBoundingClientRect();
-    let dx = e.clientX - (r.left + r.width/2), dy = e.clientY - (r.top + r.height/2);
-    const len = Math.hypot(dx,dy), max = 38;
-    if(len > max){ dx *= max/len; dy *= max/len; }
-    setKnob(dx,dy);
-    joyVec.x = dx/max; joyVec.y = dy/max;
+  ui.addEventListener('contextmenu', e=> e.preventDefault());
+  ui.addEventListener('pointerdown', e=>{
+    ui.setPointerCapture(e.pointerId);
+    if(e.pointerType !== 'mouse' && stickId === null && e.clientX < innerWidth * .45 && e.clientY > 70){
+      stickId = e.pointerId;
+      ox = Math.min(Math.max(e.clientX, 66), innerWidth - 66);
+      oy = Math.min(Math.max(e.clientY, 66), innerHeight - 66);
+      joy.style.left = ox + 'px'; joy.style.top = oy + 'px';
+      knob.classList.remove('rel'); setKnob(0,0);
+      joyVec.x = joyVec.y = 0;
+      joy.classList.add('on');
+    } else if(lookId === null){
+      lookId = e.pointerId; lx = e.clientX;
+    }
   });
-  const end = e=>{ if(e.pointerId === pid){ pid = null; joyVec.x = joyVec.y = 0; setKnob(0,0); } };
-  joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
+  ui.addEventListener('pointermove', e=>{
+    if(e.pointerId === stickId){
+      let dx = e.clientX - ox, dy = e.clientY - oy;
+      const len = Math.hypot(dx,dy);
+      if(len > TRAVEL){ dx *= TRAVEL/len; dy *= TRAVEL/len; }
+      setKnob(dx,dy);
+      const mag = Math.min(1, (len || 0) / TRAVEL);
+      if(mag < DEAD){ joyVec.x = joyVec.y = 0; }
+      else { const s = (mag - DEAD) / (1 - DEAD) / (len || 1); joyVec.x = dx * s; joyVec.y = dy * s; }
+    } else if(e.pointerId === lookId){
+      heading -= (e.clientX - lx) * SENS;
+      lx = e.clientX;
+    }
+  });
+  const end = e=>{
+    if(e.pointerId === stickId){
+      stickId = null; joyVec.x = joyVec.y = 0;
+      knob.classList.add('rel'); setKnob(0,0);
+      joy.classList.remove('on');
+    }
+    if(e.pointerId === lookId) lookId = null;
+  };
+  ui.addEventListener('pointerup', end);
+  ui.addEventListener('pointercancel', end);
 }
 
 /* Kartu info: petak terdekat dari titik pandang di depan petak */
@@ -480,22 +518,25 @@ function updateCard(){
 }
 
 const clock = new THREE.Clock();
-let heading = Math.PI;
 const camPos = new THREE.Vector3(0, 16, 103);
 function tick(){
   requestAnimationFrame(tick);
   const dt = Math.min(clock.getDelta(), .05);
   const t = clock.elapsedTime;
 
-  let mx = 0, mz = 0;
-  if(keys['w'] || keys['arrowup']) mz -= 1;
-  if(keys['s'] || keys['arrowdown']) mz += 1;
-  if(keys['a'] || keys['arrowleft']) mx -= 1;
-  if(keys['d'] || keys['arrowright']) mx += 1;
-  mx += joyVec.x; mz += joyVec.y;
-  const len = Math.hypot(mx,mz);
-  if(len > .05){
-    mx /= Math.max(1,len); mz /= Math.max(1,len);
+  /* Masukan dalam ruang kamera: iz maju+, ix kanan+ */
+  let ix = 0, iz = 0;
+  if(keys['w'] || keys['arrowup']) iz += 1;
+  if(keys['s'] || keys['arrowdown']) iz -= 1;
+  if(keys['a'] || keys['arrowleft']) ix -= 1;
+  if(keys['d'] || keys['arrowright']) ix += 1;
+  ix += joyVec.x; iz -= joyVec.y;
+  const len = Math.hypot(ix,iz);
+  const moving = len > .02;
+  if(moving){
+    const s = Math.min(1, len) / (len || 1);
+    const fx = Math.sin(heading), fz = Math.cos(heading);
+    const mx = (fx * iz - fz * ix) * s, mz = (fz * iz + fx * ix) * s;
     const speed = 17;
     let nx = visitor.position.x + mx * speed * dt;
     let nz = visitor.position.z + mz * speed * dt;
@@ -516,22 +557,15 @@ function tick(){
       }
     }
     visitor.position.x = nx; visitor.position.z = nz;
-    const target = Math.atan2(mx, mz);
-    let diff = target - heading;
-    while(diff > Math.PI) diff -= Math.PI*2;
-    while(diff < -Math.PI) diff += Math.PI*2;
-    heading += diff * Math.min(1, dt*10);
-    visitor.rotation.y = heading;
-    visitor.position.y = Math.abs(Math.sin(t*9)) * .12;
-  } else {
-    visitor.position.y = 0;
   }
+  visitor.rotation.y = heading;
+  visitor.position.y = moving ? Math.abs(Math.sin(t*9)) * .12 : 0;
 
-  const back = new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
-  const want = visitor.position.clone().add(back.multiplyScalar(13)).add(new THREE.Vector3(0,9.5,0));
+  const fx = Math.sin(heading), fz = Math.cos(heading);
+  const want = new THREE.Vector3(visitor.position.x - fx * 13, 9.5, visitor.position.z - fz * 13);
   camPos.lerp(want, 1 - Math.pow(.0001, dt));
   camera.position.copy(camPos);
-  camera.lookAt(visitor.position.x, 2, visitor.position.z);
+  camera.lookAt(visitor.position.x + fx * 6, 2.2, visitor.position.z + fz * 6);
 
   updateCard();
   renderer.render(scene, camera);
