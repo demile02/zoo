@@ -21,10 +21,9 @@
   }
   #scene{position:fixed;inset:0;display:block;touch-action:none}
   .hud{position:fixed;z-index:10;pointer-events:none}
-  #brand{top:14px;left:14px;background:var(--paper);border-radius:20px;padding:10px 16px 12px;box-shadow:var(--card-shadow);max-width:min(78vw,340px)}
-  #brand .wordmark{font-family:'Reenie Beanie',cursive;font-size:30px;line-height:.95;color:var(--leaf)}
-  #brand .sub{font-size:12.5px;font-weight:600;letter-spacing:.02em;margin-top:2px}
-  #brand .day{display:inline-block;margin-top:7px;background:#EFEDF4;color:#6F66A3;font-weight:800;font-size:11.5px;padding:3px 9px;border-radius:999px}
+  #brand{top:12px;left:12px;background:rgba(253,252,248,.94);border-radius:999px;padding:7px 14px;box-shadow:var(--card-shadow);display:flex;align-items:baseline;gap:9px;max-width:94vw}
+  #brand .wordmark{font-family:'Reenie Beanie',cursive;font-size:21px;line-height:1;color:var(--leaf);white-space:nowrap}
+  #brand .sub{font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
   #hint{top:14px;right:14px;background:rgba(253,252,248,.92);border-radius:14px;padding:8px 12px;font-size:12px;font-weight:600;box-shadow:var(--card-shadow);text-align:right;line-height:1.5}
   #hint kbd{background:var(--ink);color:var(--paper);border-radius:5px;padding:0 5px;font-family:inherit;font-size:11px}
   #card{left:50%;bottom:18px;transform:translate(-50%,140%);transition:transform .35s cubic-bezier(.2,.9,.25,1);width:min(92vw,430px);background:var(--paper);border-radius:24px;box-shadow:var(--card-shadow);padding:16px 18px}
@@ -52,14 +51,12 @@
 
 <div class="hud" id="brand">
   <div class="wordmark">Kebun Binatang Komen</div>
-  <div class="sub">Zoo ini dibangun dari komentar. Satu hewan per hari, namanya dari kamu.</div>
-  <span class="day">Hari ke-1 · denah induk v1.1</span>
+  <div class="sub">zoo dari komentar · Hari ke-1</div>
 </div>
 
 <div class="hud" id="hint">
-  <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> buat jalan, seret layar buat melihat sekeliling<br></span>
-  <span class="touch">Analog di sisi kiri buat jalan, seret layar buat menentukan arah<br></span>
-  Dekati petak kandang buat kenalan sama penghuninya
+  <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> jalan · seret layar: arah pandang</span>
+  <span class="touch">Analog kiri: jalan · seret layar: arah</span>
 </div>
 
 <div class="hud" id="card">
@@ -169,7 +166,7 @@ try {
   document.getElementById('err').style.display = 'grid';
   throw e;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(viewW(), viewH());
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -183,7 +180,7 @@ const camera = new THREE.PerspectiveCamera(55, viewW()/viewH(), .1, 600);
 const sun = new THREE.DirectionalLight(0xFFF3D6, 2.6);
 sun.position.set(80, 120, 55);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(1024, 1024);
 sun.shadow.camera.left = -160; sun.shadow.camera.right = 160;
 sun.shadow.camera.top = 160; sun.shadow.camera.bottom = -160;
 scene.add(sun);
@@ -277,19 +274,28 @@ function signBoard(top, bottom, w = 3.4, h = 1.05, cy = 1.6){
   face.position.set(0, cy, .1); g.add(face);
   return g;
 }
-[[10,80,'Stasiun Gerbang',Math.PI],[110,-44,'Stasiun Savana',-Math.PI/2],[-110,-2,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
-  const s = signBoard('KERETA KELILING', lab, 3.8);
-  s.position.set(x, 0, z); s.rotation.y = ry; scene.add(s);
+/* Papan selalu di tepi, tidak di tengah jalan: ditaruh lewat fungsi ini
+   supaya posisinya di sudut area dan pengunjung tidak menabraknya. */
+function placeSign(sign, x, z, ry = 0){
+  sign.position.set(x, 0, z); sign.rotation.y = ry;
+  scene.add(sign);
+  colliders.push({ x, z, r:.55 });
+}
+[[17,79,'Stasiun Gerbang',0],[107,-40,'Stasiun Savana',Math.PI/2],[-107,-6,'Stasiun Danau',-Math.PI/2]].forEach(([x,z,lab,ry])=>{
+  placeSign(signBoard('KERETA KELILING', lab, 3.8), x, z, ry);
 });
 
-/* Pagar keliling kebun */
+/* Pagar keliling kebun. Tiang-tiang pagar tidak digambar satu-satu:
+   posisinya dikumpulkan lalu digambar sekali sebagai InstancedMesh
+   supaya jumlah draw call (dan beban HP) turun drastis. */
+const POST_A = [], POST_B = [];
 {
-  const post = (x,z)=>cyl(.12,.12,2,MAT.woodD,x,1,z);
+  const post = (x,z)=> POST_A.push([x,z]);
   for(let x=-128; x<=128; x+=4){ post(x,-94); post(x,94); }
   for(let z=-90; z<=90; z+=4){ post(-128,z); post(128,z); }
   const rail = (w,x,z,rot)=>{
-    const r1 = box(w,.14,.1,MAT.wood,x,1.35,z); r1.rotation.y = rot;
-    const r2 = box(w,.14,.1,MAT.wood,x,.6,z); r2.rotation.y = rot;
+    const r1 = box(w,.14,.1,MAT.wood,x,1.35,z); r1.rotation.y = rot; r1.castShadow = false;
+    const r2 = box(w,.14,.1,MAT.wood,x,.6,z); r2.rotation.y = rot; r2.castShadow = false;
   };
   rail(256,0,-94,0); rail(256,0,94,0);
   rail(188,-128,0,Math.PI/2); rail(188,128,0,Math.PI/2);
@@ -318,20 +324,19 @@ function signBoard(top, bottom, w = 3.4, h = 1.05, cy = 1.6){
 for(const b of BLOCKS){
   flatRect(b.cx, b.cz, b.w, b.d, b.tint, .012);
   const sign = signBoard('KEBUN BINATANG KOMEN', b.label, 6, 1.7, 2.3);
-  const sz = b.cz > 60 ? b.cz - b.d/2 - 2.4 : b.cz + b.d/2 + 2.4;
-  sign.position.set(b.cx, 0, sz);
-  sign.rotation.y = b.cz > 60 ? Math.PI : 0;
-  scene.add(sign);
+  const sx = b.cx - b.w/2 + 5.5;
+  const sz = b.cz > 60 ? b.cz - b.d/2 + 2.2 : b.cz + b.d/2 - 2.2;
+  placeSign(sign, sx, sz, b.cz > 60 ? Math.PI : 0);
 }
 
 /* Pagar petak: tiang + dua palang di empat sisi */
 function fencePlot(p){
   flatRect(p.cx, p.cz, p.w, p.d, p.ground, .018);
   const x0=p.cx-p.w/2, x1=p.cx+p.w/2, z0=p.cz-p.d/2, z1=p.cz+p.d/2;
-  const post = (x,z)=>cyl(.09,.09,1.5,MAT.woodD,x,.75,z);
+  const post = (x,z)=> POST_B.push([x,z]);
   const rail = (len,x,z,rot)=>{
-    const r1 = box(len,.12,.08,MAT.wood,x,.95,z); r1.rotation.y = rot;
-    const r2 = box(len,.12,.08,MAT.wood,x,.45,z); r2.rotation.y = rot;
+    const r1 = box(len,.12,.08,MAT.wood,x,.95,z); r1.rotation.y = rot; r1.castShadow = false;
+    const r2 = box(len,.12,.08,MAT.wood,x,.45,z); r2.rotation.y = rot; r2.castShadow = false;
   };
   const step = Math.max(2, Math.floor(Math.min(p.w,p.d)/4));
   for(let x=x0; x<=x1+.01; x+=step){ post(x,z0); post(x,z1); }
@@ -340,11 +345,21 @@ function fencePlot(p){
   rail(p.d,x0,p.cz,Math.PI/2); rail(p.d,x1,p.cz,Math.PI/2);
   collideBox(p.cx, p.cz, p.w, p.d);
   const label = p.animal ? p.animal.name : 'Kosong';
-  const sign = signBoard(p.code, label);
-  sign.position.set(p.cx, 0, z1 + 1.5);
-  scene.add(sign);
+  placeSign(signBoard(p.code, label), p.cx - p.w/2 + 2, z1 + 1.1, -.32);
 }
 PLOTS.forEach(fencePlot);
+
+/* Gambar semua tiang pagar yang terkumpul sebagai dua InstancedMesh */
+function buildPosts(list, r, h){
+  if(!list.length) return;
+  const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(r, r, h, 8), MAT.woodD, list.length);
+  const m4 = new THREE.Matrix4();
+  list.forEach(([x,z], i)=>{ m4.makeTranslation(x, h/2, z); im.setMatrixAt(i, m4); });
+  im.receiveShadow = true;
+  scene.add(im);
+}
+buildPosts(POST_A, .12, 2);
+buildPosts(POST_B, .09, 1.5);
 
 /* Danau besar di Zona Air + kubah aviari E1 + panggung edukasi */
 {
@@ -358,13 +373,11 @@ PLOTS.forEach(fencePlot);
     new THREE.MeshLambertMaterial({ color:0xcfc6ea, transparent:true, opacity:.38, side:THREE.DoubleSide }));
   dome.position.set(56, 0, 24); scene.add(dome);
   cyl(12.6, 12.6, .5, MAT.rock, 56, .25, 24, scene, 28);
-  const sign = signBoard('E1', 'Kubah Burung');
-  sign.position.set(56, 0, 38.5); scene.add(sign);
+  placeSign(signBoard('E1', 'Kubah Burung'), 46.5, 37.5, -.3);
   collideBox(56, 24, 26, 26);
 
   cyl(5.5, 6.1, .7, MAT.rock, -16, .35, 14, scene, 20);
-  const signE = signBoard('PANGGUNG', 'Edukasi');
-  signE.position.set(-16, 0, 21.5); scene.add(signE);
+  placeSign(signBoard('PANGGUNG', 'Edukasi'), -23.5, 20.5, -.3);
   collideBox(-16, 14, 13, 13);
 }
 
@@ -372,9 +385,7 @@ PLOTS.forEach(fencePlot);
 for(const b of BUILDINGS){
   box(b.w, 3, b.d, MAT.wall, b.cx, 1.5, b.cz);
   box(b.w+.8, .5, b.d+.8, MAT.roof, b.cx, 3.25, b.cz);
-  const sign = signBoard(b.tag || 'FASILITAS', b.label, 3, .95, 1.5);
-  sign.position.set(b.cx, 0, b.cz + b.d/2 + 1.7);
-  scene.add(sign);
+  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3, .95, 1.5), b.cx + b.w/2 + 1, b.cz + b.d/2 - .6, -.35);
   collideBox(b.cx, b.cz, b.w, b.d);
 }
 
