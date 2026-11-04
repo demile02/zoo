@@ -299,7 +299,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0441';
+const BUILD = '20261105-0448';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1296,6 +1296,20 @@ function drawMap(){
     c.fillStyle = 'rgba(46,42,36,.8)';
     c.font = '700 10px Outfit, sans-serif'; c.textAlign = 'center';
     c.fillText(p.code, X(p.cx), Y(p.cz) + 3.5);
+  }
+  /* Label nama blok di denah: hanya blok berhuruf A–I, rata kiri di
+     tepi atas area bloknya, dengan pil latar supaya terbaca di atas
+     petak tanpa menutupi kode petak di tengah petak. */
+  c.font = '800 10px Outfit, sans-serif'; c.textAlign = 'left';
+  for(const b of BLOCKS){
+    if(!b.label.startsWith('BLOK ')) continue;
+    const txt = b.label.slice(5);
+    const lx = X(b.cx - b.w/2) + 4, ly = Y(b.cz - b.d/2) + 11;
+    const tw = c.measureText(txt).width;
+    c.fillStyle = 'rgba(253,252,248,.88)';
+    c.fillRect(lx - 4, ly - 10, tw + 8, 12);
+    c.fillStyle = '#2E2A24';
+    c.fillText(txt, lx, ly);
   }
   c.strokeStyle = '#f3ead8'; c.lineWidth = 5;
   c.strokeRect(X(-131), Y(-97), 262 * S, 194 * S);
