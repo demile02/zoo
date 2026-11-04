@@ -245,22 +245,41 @@ flatRect(114, 0, 1.6, 168, 0x8a8578, .03);
 flatRect(0, -84, 228, 1.6, 0x8a8578, .03);
 flatRect(0, 84, 228, 1.6, 0x8a8578, .03);
 
-function textSprite(top, bottom, scale=6, accent='#E86A2C'){
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 160;
+/* Penanda zoo = papan kayu fisik yang berdiri di dunia, bukan teks melayang:
+   dua tiang + papan coklat berteks cat, satu keluarga dengan papan gerbang utama.
+   Ukurannya tetap di dunia, jadi layar tidak penuh teks dari segala jarak. */
+function signBoard(top, bottom, w = 3.4, h = 1.05, cy = 1.6){
+  const g = new THREE.Group();
+  const postH = cy + h/2;
+  for(const px of [-w/2 + .35, w/2 - .35]){
+    const post = new THREE.Mesh(new THREE.BoxGeometry(.16, postH, .16), MAT.woodD);
+    post.position.set(px, postH/2, 0); post.castShadow = true; g.add(post);
+  }
+  const board = box(w, h, .18, MAT.woodD, 0, cy, 0, g);
+  board.castShadow = true;
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = Math.max(96, Math.round(512 * h / w));
   const c = cv.getContext('2d');
-  c.fillStyle = '#fdfcf8'; c.beginPath(); c.roundRect(0,0,512,160,36); c.fill();
-  c.textAlign = 'center';
-  c.fillStyle = accent; c.font = '800 34px Outfit, sans-serif';
-  c.fillText(top, 256, 62);
-  c.fillStyle = '#2E2A24'; c.font = '800 50px Outfit, sans-serif';
-  c.fillText(bottom, 256, 126);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map:new THREE.CanvasTexture(cv), transparent:true }));
-  sp.scale.set(scale, scale*160/512, 1);
-  return sp;
+  c.fillStyle = '#6f5133'; c.fillRect(0, 0, cv.width, cv.height);
+  c.strokeStyle = 'rgba(253,252,248,.45)'; c.lineWidth = 5;
+  c.strokeRect(12, 12, cv.width - 24, cv.height - 24);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  const fit = (txt, size)=>{
+    do { c.font = `800 ${size}px Outfit, sans-serif`; size -= 2; }
+    while(c.measureText(txt).width > cv.width - 56 && size > 18);
+  };
+  fit(top, 34);
+  c.fillStyle = '#efd9ae'; c.fillText(top, cv.width/2, cv.height * .30);
+  fit(bottom, 56);
+  c.fillStyle = '#fdfcf8'; c.fillText(bottom, cv.width/2, cv.height * .66);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(w - .12, h - .12),
+    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv) }));
+  face.position.set(0, cy, .1); g.add(face);
+  return g;
 }
-[[10,80,'Stasiun Gerbang'],[110,-44,'Stasiun Savana'],[-110,-2,'Stasiun Danau']].forEach(([x,z,lab])=>{
-  const s = textSprite('KERETA KELILING', lab, 5, '#4E7A3A');
-  s.position.set(x, 4.4, z); scene.add(s);
+[[10,80,'Stasiun Gerbang',Math.PI],[110,-44,'Stasiun Savana',-Math.PI/2],[-110,-2,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
+  const s = signBoard('KERETA KELILING', lab, 3.8);
+  s.position.set(x, 0, z); s.rotation.y = ry; scene.add(s);
 });
 
 /* Pagar keliling kebun */
@@ -298,9 +317,10 @@ function textSprite(top, bottom, scale=6, accent='#E86A2C'){
 /* Warna dasar tiap blok + papan nama blok di tepi jalan */
 for(const b of BLOCKS){
   flatRect(b.cx, b.cz, b.w, b.d, b.tint, .012);
-  const sign = textSprite('KEBUN BINATANG KOMEN', b.label, 10, '#4E7A3A');
+  const sign = signBoard('KEBUN BINATANG KOMEN', b.label, 6, 1.7, 2.3);
   const sz = b.cz > 60 ? b.cz - b.d/2 - 2.4 : b.cz + b.d/2 + 2.4;
-  sign.position.set(b.cx, 5.6, sz);
+  sign.position.set(b.cx, 0, sz);
+  sign.rotation.y = b.cz > 60 ? Math.PI : 0;
   scene.add(sign);
 }
 
@@ -320,8 +340,8 @@ function fencePlot(p){
   rail(p.d,x0,p.cz,Math.PI/2); rail(p.d,x1,p.cz,Math.PI/2);
   collideBox(p.cx, p.cz, p.w, p.d);
   const label = p.animal ? p.animal.name : 'Kosong';
-  const sign = textSprite(p.code, label, 5.4);
-  sign.position.set(p.cx, 3.8, z1 + 1.5);
+  const sign = signBoard(p.code, label);
+  sign.position.set(p.cx, 0, z1 + 1.5);
   scene.add(sign);
 }
 PLOTS.forEach(fencePlot);
@@ -338,13 +358,13 @@ PLOTS.forEach(fencePlot);
     new THREE.MeshLambertMaterial({ color:0xcfc6ea, transparent:true, opacity:.38, side:THREE.DoubleSide }));
   dome.position.set(56, 0, 24); scene.add(dome);
   cyl(12.6, 12.6, .5, MAT.rock, 56, .25, 24, scene, 28);
-  const sign = textSprite('E1', 'Kubah Burung', 5.4);
-  sign.position.set(56, 5, 38.5); scene.add(sign);
+  const sign = signBoard('E1', 'Kubah Burung');
+  sign.position.set(56, 0, 38.5); scene.add(sign);
   collideBox(56, 24, 26, 26);
 
   cyl(5.5, 6.1, .7, MAT.rock, -16, .35, 14, scene, 20);
-  const signE = textSprite('PANGGUNG', 'Edukasi', 5.4, '#4E7A3A');
-  signE.position.set(-16, 4.4, 21.5); scene.add(signE);
+  const signE = signBoard('PANGGUNG', 'Edukasi');
+  signE.position.set(-16, 0, 21.5); scene.add(signE);
   collideBox(-16, 14, 13, 13);
 }
 
@@ -352,8 +372,8 @@ PLOTS.forEach(fencePlot);
 for(const b of BUILDINGS){
   box(b.w, 3, b.d, MAT.wall, b.cx, 1.5, b.cz);
   box(b.w+.8, .5, b.d+.8, MAT.roof, b.cx, 3.25, b.cz);
-  const sign = textSprite(b.tag || 'FASILITAS', b.label, 4.8, '#4E7A3A');
-  sign.position.set(b.cx, 5.2, b.cz + b.d/2 + 1.7);
+  const sign = signBoard(b.tag || 'FASILITAS', b.label, 3, .95, 1.5);
+  sign.position.set(b.cx, 0, b.cz + b.d/2 + 1.7);
   scene.add(sign);
   collideBox(b.cx, b.cz, b.w, b.d);
 }
