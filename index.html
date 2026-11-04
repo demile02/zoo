@@ -358,7 +358,7 @@ function fencePlot(p){
   rail(p.d,x0,p.cz,Math.PI/2); rail(p.d,x1,p.cz,Math.PI/2);
   collideBox(p.cx, p.cz, p.w, p.d);
   const label = p.animal ? p.animal.name : 'Kosong';
-  placeSign(signBoard(p.code, label), p.cx - p.w/2 + 2, z1 + 1.1, -.32);
+  placeSign(signBoard(p.code, label), p.cx, z1 + 1.5, 0);
 }
 PLOTS.forEach(fencePlot);
 
@@ -520,9 +520,14 @@ let heading = Math.PI;
       const len = Math.hypot(dx,dy);
       if(len > TRAVEL){ dx *= TRAVEL/len; dy *= TRAVEL/len; }
       setKnob(dx,dy);
-      const mag = Math.min(1, (len || 0) / TRAVEL);
+      const cl = Math.min(len, TRAVEL);
+      const mag = cl / TRAVEL;
       if(mag < DEAD){ joyVec.x = joyVec.y = 0; }
-      else { const s = (mag - DEAD) / (1 - DEAD) / (len || 1); joyVec.x = dx * s; joyVec.y = dy * s; }
+      else {
+        const s = (mag - DEAD) / (1 - DEAD);
+        const inv = cl > 0 ? s / cl : 0;
+        joyVec.x = dx * inv; joyVec.y = dy * inv;
+      }
     } else if(e.pointerId === lookId){
       heading -= (p.x - lx) * SENS;
       lx = p.x;
