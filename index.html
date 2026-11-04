@@ -20,7 +20,7 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#9CC184;font-family:'Outfit',sans-serif;color:var(--ink)}
-  #app{position:fixed;inset:0}
+  #app{position:fixed;inset:0;touch-action:none}
   /* Kunci landscape seperti game: di layar potret seluruh app diputar paksa oleh CSS,
      pengunjung tidak perlu memutar HP. Di layar landscape tidak ada putaran. */
   @media (orientation:portrait){
@@ -31,7 +31,7 @@
   #brand{top:12px;left:12px;background:rgba(253,252,248,.94);border-radius:999px;padding:7px 14px;box-shadow:var(--card-shadow);display:flex;align-items:baseline;gap:9px;max-width:94vw}
   #brand .wordmark{font-family:'Reenie Beanie',cursive;font-size:21px;line-height:1;color:var(--leaf);white-space:nowrap}
   #brand .sub{font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
-  #hint{top:66px;right:14px;background:rgba(253,252,248,.92);border-radius:14px;padding:8px 12px;font-size:12px;font-weight:600;box-shadow:var(--card-shadow);text-align:right;line-height:1.5}
+  #hint{top:118px;right:14px;background:rgba(253,252,248,.92);border-radius:14px;padding:8px 12px;font-size:12px;font-weight:600;box-shadow:var(--card-shadow);text-align:right;line-height:1.5}
   #hint kbd{background:var(--ink);color:var(--paper);border-radius:5px;padding:0 5px;font-family:inherit;font-size:11px}
   #card{left:12px;top:58px;transform:translateX(-115%);transition:transform .35s cubic-bezier(.2,.9,.25,1);width:min(80vw,340px);background:var(--paper);border-radius:24px;box-shadow:var(--card-shadow);padding:16px 18px}
   #card.show{transform:translateX(0)}
@@ -58,6 +58,16 @@
   #jumpBtn:active{transform:scale(.93)}
   #muteBtn{position:absolute;z-index:8;top:12px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
   #mapBtn{position:absolute;z-index:8;top:12px;right:64px;height:44px;padding:0 16px;border-radius:999px;background:rgba(253,252,248,.94);border:0;font:inherit;font-weight:800;font-size:13.5px;color:var(--ink);box-shadow:var(--card-shadow);cursor:pointer}
+  #helpBtn{position:absolute;z-index:8;top:64px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font:inherit;font-size:18px;font-weight:800;color:#6F66A3;box-shadow:var(--card-shadow);cursor:pointer}
+  #welcome{position:absolute;inset:0;z-index:35;background:rgba(46,42,36,.5);display:none;place-items:center;padding:16px}
+  #welcome.show{display:grid}
+  #welcome .wpanel{background:var(--paper);border-radius:28px;box-shadow:var(--card-shadow);padding:26px 24px;width:min(92vw,430px);text-align:center}
+  #welcome .wword{font-family:'Reenie Beanie',cursive;font-size:38px;color:var(--leaf);line-height:1}
+  #welcome .wbody{margin-top:10px;font-size:14.5px;font-weight:600;line-height:1.5}
+  #welcome .wctrl{margin-top:10px;font-size:12.5px;font-weight:600;background:#EFEDF4;color:#6F66A3;border-radius:14px;padding:9px 12px;line-height:1.5}
+  #welcome .wgo{margin-top:16px;background:#6F66A3;color:#fff;border:0;font:inherit;font-weight:800;font-size:15px;padding:13px 22px;border-radius:999px;cursor:pointer;box-shadow:0 12px 26px rgba(46,42,36,.25)}
+  #social{position:absolute;z-index:8;left:12px;bottom:12px;display:flex;flex-direction:column;gap:8px}
+  #social a{width:42px;height:42px;border-radius:50%;background:rgba(253,252,248,.94);box-shadow:var(--card-shadow);display:grid;place-items:center;font-size:19px;text-decoration:none}
   #mapOverlay{position:absolute;inset:0;z-index:30;background:rgba(46,42,36,.5);display:none;place-items:center;padding:16px}
   #mapOverlay.show{display:grid}
   #mapPanel{background:var(--paper);border-radius:24px;box-shadow:var(--card-shadow);padding:14px;width:min(92vw,600px)}
@@ -84,7 +94,7 @@
 
 <div class="hud" id="brand">
   <div class="wordmark">Kebun Binatang Komen</div>
-  <div class="sub">zoo dari komentar · Hari ke-1</div>
+  <div class="sub" id="brandSub">zoo dari komentar · Hari ke-1</div>
 </div>
 
 <div class="hud" id="hint">
@@ -104,6 +114,16 @@
 <button id="jumpBtn" type="button">Lompat</button>
 <button id="muteBtn" type="button" aria-label="Suara">🔊</button>
 <button id="mapBtn" type="button">🗺️ Denah</button>
+<button id="helpBtn" type="button" aria-label="Bantuan">?</button>
+<div id="social"></div>
+<div id="welcome">
+  <div class="wpanel">
+    <div class="wword">Selamat datang!</div>
+    <div class="wbody">Ini Kebun Binatang Komen, zoo yang dibangun dari komentar. Setiap hari satu hewan baru datang dari komentar paling disukai, dan namanya adalah nama pengusulnya.</div>
+    <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat</div>
+    <button class="wgo" id="welcomeGo" type="button">Mulai jalan-jalan</button>
+  </div>
+</div>
 <div id="mapOverlay">
   <div id="mapPanel">
     <div class="mhead"><span class="mtitle">Denah Zoo</span><span class="mclose">KETUK UNTUK TUTUP</span></div>
@@ -192,6 +212,54 @@ const PLOTS = [
   { code:'I2', block:'Blok I · Pegunungan', cx:106, cz:-33, w:32, d:15, ground:G_GUN, use:'panda merah' },
   { code:'I3', block:'Blok I · Pegunungan', cx:106, cz:-15, w:32, d:15, ground:G_GUN, use:'kucing pegunungan' },
 ];
+
+/* ================= POLA CEPAT HEWAN BARU =================
+   Hewan hasil komentar cukup ditambahkan sebagai SATU entri di
+   HEWAN_BARU: model dibangun otomatis, papan kandang langsung bernama,
+   kartu kandang terisi, tombol Sapa + dialog + suara terdaftar.
+   Dialog bawaan bisa ditambah di DIALOG, suara berkas di SUARA. */
+function makeQuadruped(o){
+  const g = new THREE.Group();
+  const fur = new THREE.MeshLambertMaterial({ color:o.warna ?? 0x9a8a7a });
+  const light = new THREE.MeshLambertMaterial({ color:o.warnaMuda ?? o.warna ?? 0x9a8a7a });
+  const s = o.skala || 1;
+  const body = new THREE.Mesh(new THREE.SphereGeometry(1.05 * s, 12, 10), fur);
+  body.scale.set(1.25, .95, .85); body.position.y = 1.15 * s; g.add(body);
+  const headG = new THREE.Group(); headG.position.set(1.35 * s, 1.55 * s, 0); g.add(headG);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.52 * s, 12, 10), fur); headG.add(head);
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(.28 * s, 10, 8), light);
+  muzzle.position.set(.38 * s, -.12 * s, 0); muzzle.scale.set(1, .8, .9); headG.add(muzzle);
+  for(const sd of [-1, 1]){
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(.17 * s, 8, 8), fur);
+    ear.position.set(-.08 * s, .48 * s, .3 * s * sd);
+    if(o.telinga === 'runcing') ear.scale.set(.7, 1.5, .7);
+    headG.add(ear);
+    for(const fx of [-0.7, 0.7]){
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.13 * s, .11 * s, .95 * s, 8), fur);
+      leg.position.set(fx * s, .48 * s, .38 * s * sd); g.add(leg);
+    }
+  }
+  const tailG = new THREE.Group(); tailG.position.set(-1.3 * s, 1.35 * s, 0); g.add(tailG);
+  const tail = new THREE.Mesh(new THREE.CylinderGeometry(.07 * s, .05 * s, (o.ekor === 'panjang' ? 1.1 : .55) * s, 6), fur);
+  tail.position.y = .3 * s; tailG.add(tail);
+  tailG.rotation.z = o.ekor === 'panjang' ? -.7 : -.3;
+  g.traverse(m=>{ if(m.isMesh) m.castShadow = true; });
+  g.userData = { head: headG, tail: tailG };
+  return g;
+}
+const HEWAN_BARU = [
+  /* Format entri:
+  { plot:'B2', nama:'NamaHewan', spesies:'Jenis hewan', teks:'Deskripsi singkat.',
+    dari:'Komentar teratas Day N', hadap:2.2,
+    model:{ warna:0x999999, warnaMuda:0xcccccc, ekor:'pendek', telinga:'runcing', skala:1 },
+    dialog:['Kalimat sapa 1', 'Kalimat sapa 2'], suara:'kera' }, */
+];
+const HEWAN_GROUPS = {};
+for(const h of HEWAN_BARU){
+  const p = PLOTS.find(q => q.code === h.plot);
+  if(!p) continue;
+  p.animal = { name: h.nama, species: h.spesies, text: h.teks || '', from: h.dari || '' };
+}
 const BUILDINGS = [
   { label:'Kantor direktur', cx:-104, cz:62, w:15, d:9 },
   { label:'Klinik hewan', cx:-84, cz:62, w:15, d:9 },
@@ -226,7 +294,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261104-2359';
+const BUILD = '20261105-0400';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -234,6 +302,15 @@ const RESTORE = (()=>{
   }catch(_){}
   return { x:0, z:87, h:Math.PI };
 })();
+
+/* Penghitung hari otomatis sejak tanggal mulai (ubah tanggalnya di sini) */
+const TANGGAL_MULAI = '2026-11-04';
+{
+  const mulai = new Date(TANGGAL_MULAI + 'T00:00:00');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const hari = Math.max(1, Math.round((now - mulai) / 86400000) + 1);
+  document.getElementById('brandSub').textContent = 'zoo dari komentar · Hari ke-' + hari;
+}
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ec9ee);
@@ -695,13 +772,14 @@ function monkey(){
   const face = new THREE.MeshLambertMaterial({ color:0xd9b98f });
   const body = new THREE.Mesh(new THREE.SphereGeometry(1.05,12,10), fur);
   body.scale.y = 1.15; body.position.y = 1.35; body.castShadow = true; g.add(body);
+  const headG = new THREE.Group(); headG.position.y = 2.85; g.add(headG);
   const head = new THREE.Mesh(new THREE.SphereGeometry(.68,12,10), fur);
-  head.position.y = 2.85; head.castShadow = true; g.add(head);
+  head.castShadow = true; headG.add(head);
   const muzzle = new THREE.Mesh(new THREE.SphereGeometry(.4,10,8), face);
-  muzzle.position.set(0,2.7,.5); muzzle.scale.set(1,.75,.8); g.add(muzzle);
+  muzzle.position.set(0,-.15,.5); muzzle.scale.set(1,.75,.8); headG.add(muzzle);
   [-1,1].forEach(s=>{
     const ear = new THREE.Mesh(new THREE.SphereGeometry(.26,8,8), face);
-    ear.position.set(.68*s,2.95,0); g.add(ear);
+    ear.position.set(.68*s,.1,0); headG.add(ear);
     const arm = cyl(.16,.14,1.5,fur,.95*s,1.5,.15,g); arm.rotation.z = .5*s;
     const leg = cyl(.2,.17,1.1,fur,.55*s,.45,.45,g); leg.rotation.x = -1.1;
   });
@@ -712,13 +790,14 @@ function monkey(){
   }
   const tail = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, .11, 6), fur);
   tail.castShadow = true; g.add(tail);
+  g.userData = { head: headG, tail };
   return g;
 }
 {
   cyl(2.2,2.8,1,MAT.rock,-109,.5,35);
   const m = monkey(); m.position.set(-109, 1, 35); m.rotation.y = .7;
   scene.add(m);
-  INTERACT.push({ name:'Galang', x:-109, z:35, top:5.8, group:m, baseY:1, idx:0, speakT:-9, lines: DIALOG['Galang'] });
+  INTERACT.push({ name:'Galang', x:-109, z:35, top:5.8, group:m, baseY:1, idx:0, speakT:-9, idle:'kera', lines: DIALOG['Galang'] });
 }
 
 /* Manusia low-poly berkaki dan bertangan: kaki berporos di pinggul,
@@ -914,6 +993,38 @@ function updateCard(){
   card.classList.add('show');
 }
 
+/* Animasi santai hewan: kepala menoleh, ekor bergerak, dan Galang
+   sesekali melompat pindah tempat di atas batunya supaya zoo terasa hidup. */
+function updateAnimals(t, dt){
+  for(const c of INTERACT){
+    if(!c.group || c.parts || !c.idle) continue;
+    const u = c.group.userData;
+    if(c.idle === 'kera'){
+      if(u.head){ u.head.rotation.y = Math.sin(t * .45) * .55; u.head.rotation.x = Math.sin(t * .8) * .08; }
+      if(u.tail) u.tail.rotation.y = Math.sin(t * 1.9) * .14;
+      if(c.nextHop === undefined){ c.nextHop = t + 3; c.hx = c.x; c.hz = c.z; }
+      if(c.hop){
+        const p = (t - c.hop.start) / .5;
+        if(p >= 1){
+          c.group.position.x = c.hop.tx; c.group.position.z = c.hop.tz;
+          c.hx = c.hop.tx; c.hz = c.hop.tz;
+          c.wanderY = 0; c.hop = null; c.nextHop = t + 2.5 + Math.random() * 4;
+        } else {
+          c.group.position.x = c.hop.fx + (c.hop.tx - c.hop.fx) * p;
+          c.group.position.z = c.hop.fz + (c.hop.tz - c.hop.fz) * p;
+          c.wanderY = Math.sin(p * Math.PI) * .45;
+        }
+      } else if(t >= c.nextHop){
+        const a = Math.random() * Math.PI * 2, r = Math.random() * 1.5;
+        c.hop = { fx: c.hx, fz: c.hz, tx: c.x + Math.cos(a) * r, tz: c.z + Math.sin(a) * r, start: t };
+      }
+    } else if(c.idle === 'quadruped'){
+      if(u.head) u.head.rotation.y = Math.sin(t * .5 + c.x) * .4;
+      if(u.tail) u.tail.rotation.x = Math.sin(t * 2.3 + c.z) * .25;
+    }
+  }
+}
+
 /* Interaksi karakter: dekati karakter sampai tombol Sapa muncul, tekan
    tombolnya (atau tombol E) dan karakter menjawab lewat bubble + suara
    sambil melompat (hewan) atau melambai (Pak Direktur). */
@@ -931,6 +1042,20 @@ const SUARA = {
   'Galang': { file: null, jenis: 'kera' },
   'Pak Direktur': { file: null, jenis: 'sapaan' },
 };
+/* Bangun model hewan pola cepat (scene sudah ada di titik ini),
+   lalu daftarkan ke dialog, suara, dan interaksi */
+for(const h of HEWAN_BARU){
+  const p = PLOTS.find(q => q.code === h.plot);
+  if(!p) continue;
+  const g = makeQuadruped(h.model || {});
+  g.position.set(p.cx, 0, p.cz);
+  g.rotation.y = h.hadap || 0;
+  scene.add(g);
+  HEWAN_GROUPS[h.nama] = g;
+  DIALOG[h.nama] = h.dialog || ['Halo! Aku ' + h.nama + '.'];
+  SUARA[h.nama] = { file: null, jenis: h.suara || 'kera' };
+  INTERACT.push({ name: h.nama, x: p.cx, z: p.cz, top: 3.6, group: g, baseY: 0, idx: 0, speakT: -9, idle: 'quadruped', lines: DIALOG[h.nama] });
+}
 let AC = null;
 function audioCtx(){
   if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
@@ -1007,6 +1132,7 @@ muteBtn.addEventListener('click', ()=>{
   muted = !muted;
   try{ localStorage.setItem('zoo-mute', muted ? '1' : '0'); }catch(_){}
   drawMute();
+  if(ambGain) ambGain.gain.value = muted ? 0 : .5;
 });
 
 /* Denah zoo: peta gambar-langsung dari data petak yang sama dengan dunia 3D,
@@ -1051,6 +1177,74 @@ function setMap(open){
 }
 document.getElementById('mapBtn').addEventListener('click', ()=> setMap(true));
 mapOverlay.addEventListener('click', ()=> setMap(false));
+
+/* Sambutan pengunjung pertama (bisa dibuka lagi lewat tombol ?) */
+const welcomeEl = document.getElementById('welcome');
+function setWelcome(open){
+  welcomeEl.classList.toggle('show', open);
+  if(!open){ try{ localStorage.setItem('zoo-welcomed', '1'); }catch(_){} }
+}
+document.getElementById('welcomeGo').addEventListener('click', ()=> setWelcome(false));
+document.getElementById('helpBtn').addEventListener('click', ()=> setWelcome(true));
+try{ if(!localStorage.getItem('zoo-welcomed')) setWelcome(true); }catch(_){}
+
+/* Tautan akun: isi alamatnya di sini, tombolnya muncul otomatis.
+   Selama kosong, tidak ada tombol yang ditampilkan. */
+const SOSMED = { instagram:'', tiktok:'', youtube:'' };
+{
+  const box = document.getElementById('social');
+  const items = [['instagram', '📸'], ['tiktok', '🎵'], ['youtube', '▶️']];
+  for(const [key, icon] of items){
+    if(!SOSMED[key]) continue;
+    const a = document.createElement('a');
+    a.href = SOSMED[key]; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = icon; a.setAttribute('aria-label', key);
+    box.appendChild(a);
+  }
+}
+
+/* Suara suasana zoo: angin pelan + kicau burung acak, mulai setelah
+   sentuhan pertama (aturan peramban) dan ikut tombol senyap. */
+let ambGain = null, ambStarted = false;
+function startAmbience(){
+  if(ambStarted) return; ambStarted = true;
+  try{
+    const ac = audioCtx();
+    ambGain = ac.createGain();
+    ambGain.gain.value = muted ? 0 : .5;
+    ambGain.connect(ac.destination);
+    const len = 2 * ac.sampleRate;
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    let last = 0;
+    for(let i = 0; i < len; i++){ const w = Math.random() * 2 - 1; last = (last + .02 * w) / 1.02; d[i] = last * 3; }
+    const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+    const flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 400;
+    const wg = ac.createGain(); wg.gain.value = .12;
+    src.connect(flt); flt.connect(wg); wg.connect(ambGain); src.start();
+    const chirp = ()=>{
+      if(!muted && ambGain){
+        const t0 = ac.currentTime + .05;
+        const n = 2 + Math.floor(Math.random() * 3);
+        for(let i = 0; i < n; i++){
+          const o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine';
+          const t = t0 + i * .16, f = 2300 + Math.random() * 900;
+          o.frequency.setValueAtTime(f, t);
+          o.frequency.exponentialRampToValueAtTime(f * 1.25, t + .07);
+          g.gain.setValueAtTime(0, t);
+          g.gain.linearRampToValueAtTime(.05, t + .02);
+          g.gain.exponentialRampToValueAtTime(.001, t + .13);
+          o.connect(g); g.connect(ambGain);
+          o.start(t); o.stop(t + .14);
+        }
+      }
+      setTimeout(chirp, 3500 + Math.random() * 6000);
+    };
+    setTimeout(chirp, 1200);
+  }catch(_){}
+}
+addEventListener('pointerdown', startAmbience);
 const projV = new THREE.Vector3();
 function updateInteract(t){
   let best = 1e9; nearChar = null;
@@ -1068,7 +1262,8 @@ function updateInteract(t){
     if(c.parts){
       c.parts.armR.rotation.z = (p >= 0 && p < 1.8) ? 2.3 + Math.sin(t * 11) * .35 : -.07;
     } else if(c.group){
-      c.group.position.y = (p >= 0 && p < 1) ? c.baseY + Math.sin(p * Math.PI) * .8 : c.baseY;
+      const sp = (p >= 0 && p < 1) ? Math.sin(p * Math.PI) * .8 : 0;
+      c.group.position.y = c.baseY + sp + (c.wanderY || 0);
     }
   }
   if(bubbleFor && performance.now() < bubbleUntil){
@@ -1192,6 +1387,7 @@ function tick(){
   camera.lookAt(visitor.position.x + fx * 6, 2.2, visitor.position.z + fz * 6);
 
   updateCard();
+  updateAnimals(t, dt);
   updateInteract(t);
   TRAIN.update(dt);
   for(const c of CLOUDS){ c.position.x += dt * .7; if(c.position.x > 290) c.position.x = -290; }
