@@ -188,7 +188,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261104-2308';
+const BUILD = '20261104-2340';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -269,8 +269,8 @@ function flatRect(cx,cz,w,d,color,y=.015){
 }
 
 const colliders = [];
-function collideBox(cx,cz,w,d){
-  colliders.push({ x0:cx-w/2-.4, x1:cx+w/2+.4, z0:cz-d/2-.4, z1:cz+d/2+.4, box:true });
+function collideBox(cx,cz,w,d,low){
+  colliders.push({ x0:cx-w/2-.4, x1:cx+w/2+.4, z0:cz-d/2-.4, z1:cz+d/2+.4, box:true, low: low || 0 });
 }
 /* Geometri statis dikumpulkan per material lalu digabung jadi satu mesh
    per kelompok: ratusan benda statis turun jadi segelintir draw call. */
@@ -409,7 +409,13 @@ function fencePlot(p){
   for(let z=z0+step; z<z1; z+=step){ post(x0,z); post(x1,z); }
   rail(p.w,p.cx,z0,0); rail(p.w,p.cx,z1,0);
   rail(p.d,x0,p.cz,Math.PI/2); rail(p.d,x1,p.cz,Math.PI/2);
-  collideBox(p.cx, p.cz, p.w, p.d);
+  /* Tabrakan pagar = empat garis tipis mengikuti pagar, bertanda low:
+     bisa dilompati (lompatan cukup tinggi pagar tidak menahan), tapi
+     tidak bisa ditembus sambil jalan biasa. */
+  collideBox(p.cx, z0, p.w + .9, .9, 1.15);
+  collideBox(p.cx, z1, p.w + .9, .9, 1.15);
+  collideBox(x0, p.cz, .9, p.d + .9, 1.15);
+  collideBox(x1, p.cz, .9, p.d + .9, 1.15);
   const label = p.animal ? p.animal.name : 'Kosong';
   placeSign(signBoard(p.code, label), p.cx, z1 + 1.5, 0);
 }
@@ -587,7 +593,7 @@ const visitor = VP.group;
 const legL = VP.legL, legR = VP.legR, armL = VP.armL, armR = VP.armR, bodyG = VP.body;
 let walkPhase = 0, swingAmp = 0;
 let jumpY = 0, jumpV = 0;
-function doJump(){ if(jumpY <= 0 && jumpV === 0) jumpV = 9.2; }
+function doJump(){ if(jumpY <= 0 && jumpV === 0) jumpV = 10; }
 visitor.position.set(RESTORE.x, 0, RESTORE.z);
 scene.add(visitor);
 
@@ -812,7 +818,7 @@ function interact(){
 }
 talkBtn.addEventListener('click', interact);
 addEventListener('keydown', e=>{ if(e.key.toLowerCase() === 'e') interact(); });
-document.getElementById('jumpBtn').addEventListener('click', doJump);
+document.getElementById('jumpBtn').addEventListener('pointerdown', e=>{ e.preventDefault(); doJump(); });
 addEventListener('keydown', e=>{ if(e.code === 'Space'){ e.preventDefault(); doJump(); } });
 const projV = new THREE.Vector3();
 function updateInteract(t){
@@ -907,7 +913,9 @@ function tick(){
     nz = THREE.MathUtils.clamp(nz, -92, 92);
     for(const c of colliders){
       if(c.box){
-        if(nx > c.x0 && nx < c.x1 && nz > c.z0 && nz < c.z1){
+        if(c.low && jumpY > c.low){
+          /* Sedang melompat di atas pagar rendah: tidak ditahan */
+        } else if(nx > c.x0 && nx < c.x1 && nz > c.z0 && nz < c.z1){
           const dxl = Math.abs(nx - c.x0), dxr = Math.abs(nx - c.x1);
           const dzl = Math.abs(nz - c.z0), dzr = Math.abs(nz - c.z1);
           const m = Math.min(dxl, dxr, dzl, dzr);
