@@ -324,8 +324,8 @@ const POST_A = [], POST_B = [];
 for(const b of BLOCKS){
   flatRect(b.cx, b.cz, b.w, b.d, b.tint, .012);
   const sign = signBoard('KEBUN BINATANG KOMEN', b.label, 6, 1.7, 2.3);
-  const sx = b.cx - b.w/2 + 5.5;
-  const sz = b.cz > 60 ? b.cz - b.d/2 + 2.2 : b.cz + b.d/2 - 2.2;
+  const sx = b.cx;
+  const sz = b.cz > 60 ? b.cz - b.d/2 - 2.4 : b.cz + b.d/2 + 2.4;
   placeSign(sign, sx, sz, b.cz > 60 ? Math.PI : 0);
 }
 
