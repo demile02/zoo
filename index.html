@@ -13,6 +13,12 @@
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#9CC184;font-family:'Outfit',sans-serif;color:var(--ink)}
+  #app{position:fixed;inset:0}
+  /* Kunci landscape seperti game: di layar potret seluruh app diputar paksa oleh CSS,
+     pengunjung tidak perlu memutar HP. Di layar landscape tidak ada putaran. */
+  @media (orientation:portrait){
+    #app{inset:auto;top:0;left:0;width:100vh;width:100dvh;height:100vw;height:100dvw;transform:rotate(90deg) translateY(-100%);transform-origin:top left}
+  }
   #scene{position:fixed;inset:0;display:block;touch-action:none}
   .hud{position:fixed;z-index:10;pointer-events:none}
   #brand{top:14px;left:14px;background:var(--paper);border-radius:20px;padding:10px 16px 12px;box-shadow:var(--card-shadow);max-width:min(78vw,340px)}
@@ -41,6 +47,7 @@
 </style>
 </head>
 <body>
+<div id="app">
 <canvas id="scene"></canvas>
 
 <div class="hud" id="brand">
@@ -69,6 +76,7 @@
   <h1>Zoo-nya belum bisa dibuka</h1>
   <p>Peramban ini tidak menjalankan grafis 3D (WebGL) atau koneksi ke pustaka 3D terputus. Coba buka lagi dari Chrome atau Safari terbaru.</p>
 </div></div>
+</div>
 
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
@@ -152,6 +160,8 @@ const BUILDINGS = [
 ];
 
 const canvas = document.getElementById('scene');
+const appEl = document.getElementById('app');
+const viewW = ()=> appEl.clientWidth, viewH = ()=> appEl.clientHeight;
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
@@ -160,7 +170,7 @@ try {
   throw e;
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(viewW(), viewH());
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -168,7 +178,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x9CC184);
 scene.fog = new THREE.Fog(0x9CC184, 150, 400);
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, .1, 600);
+const camera = new THREE.PerspectiveCamera(55, viewW()/viewH(), .1, 600);
 
 const sun = new THREE.DirectionalLight(0xFFF3D6, 2.6);
 sun.position.set(80, 120, 55);
@@ -425,24 +435,48 @@ let heading = Math.PI;
   const TRAVEL = 46, DEAD = 0.14, SENS = 0.0042;
   let stickId = null, lookId = null, ox = 0, oy = 0, lx = 0;
   const setKnob = (dx,dy)=>{ knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; };
+  /* Di mode potret app diputar CSS 90 derajat, jadi koordinat sentuh layar
+     diterjemahkan dulu ke koordinat app sebelum dipakai. */
+  const portraitMq = matchMedia('(orientation: portrait)');
+  const toLocal = e => portraitMq.matches
+    ? { x: e.clientY, y: innerWidth - e.clientX }
+    : { x: e.clientX, y: e.clientY };
+  /* Sekali sentuh pertama: coba kunci landscape asli peramban (layar penuh).
+     Kalau peramban menolak (mis. iOS), putaran CSS di atas tetap menjamin landscape. */
+  let lockTried = false;
+  function tryLandscapeLock(){
+    if(lockTried) return; lockTried = true;
+    const lock = ()=>{ try {
+      const p = screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape');
+      if(p && p.catch) p.catch(()=>{});
+    } catch(_){} };
+    try {
+      const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
+      if(r && r.then) r.then(lock, ()=>{});
+      else lock();
+    } catch(_){}
+  }
   ui.addEventListener('contextmenu', e=> e.preventDefault());
   ui.addEventListener('pointerdown', e=>{
+    tryLandscapeLock();
     ui.setPointerCapture(e.pointerId);
-    if(e.pointerType !== 'mouse' && stickId === null && e.clientX < innerWidth * .45 && e.clientY > 70){
+    const p = toLocal(e);
+    if(e.pointerType !== 'mouse' && stickId === null && p.x < viewW() * .45 && p.y > 70){
       stickId = e.pointerId;
-      ox = Math.min(Math.max(e.clientX, 66), innerWidth - 66);
-      oy = Math.min(Math.max(e.clientY, 66), innerHeight - 66);
+      ox = Math.min(Math.max(p.x, 66), viewW() - 66);
+      oy = Math.min(Math.max(p.y, 66), viewH() - 66);
       joy.style.left = ox + 'px'; joy.style.top = oy + 'px';
       knob.classList.remove('rel'); setKnob(0,0);
       joyVec.x = joyVec.y = 0;
       joy.classList.add('on');
     } else if(lookId === null){
-      lookId = e.pointerId; lx = e.clientX;
+      lookId = e.pointerId; lx = p.x;
     }
   });
   ui.addEventListener('pointermove', e=>{
+    const p = toLocal(e);
     if(e.pointerId === stickId){
-      let dx = e.clientX - ox, dy = e.clientY - oy;
+      let dx = p.x - ox, dy = p.y - oy;
       const len = Math.hypot(dx,dy);
       if(len > TRAVEL){ dx *= TRAVEL/len; dy *= TRAVEL/len; }
       setKnob(dx,dy);
@@ -450,8 +484,8 @@ let heading = Math.PI;
       if(mag < DEAD){ joyVec.x = joyVec.y = 0; }
       else { const s = (mag - DEAD) / (1 - DEAD) / (len || 1); joyVec.x = dx * s; joyVec.y = dy * s; }
     } else if(e.pointerId === lookId){
-      heading -= (e.clientX - lx) * SENS;
-      lx = e.clientX;
+      heading -= (p.x - lx) * SENS;
+      lx = p.x;
     }
   });
   const end = e=>{
@@ -572,11 +606,13 @@ function tick(){
 }
 tick();
 
-addEventListener('resize', ()=>{
-  camera.aspect = innerWidth/innerHeight;
+function applySize(){
+  camera.aspect = viewW()/viewH();
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+  renderer.setSize(viewW(), viewH());
+}
+addEventListener('resize', applySize);
+addEventListener('orientationchange', ()=> setTimeout(applySize, 60));
 </script>
 </body>
 </html>
