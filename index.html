@@ -299,7 +299,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0423';
+const BUILD = '20261105-0428';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -599,6 +599,32 @@ const POST_A = [], POST_B = [];
     new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(signC) }));
   sign.position.set(0,8.6,93.85); g.add(sign);
   scene.add(g);
+}
+
+/* Papan pengumuman besar di plaza, dekat gerbang (timur loket, tidak
+   menabrak bangunan): menghadap selatan supaya langsung terbaca
+   pengunjung yang baru masuk. Satu muka papan saja, tiang + papan
+   kayunya ikut gabungan WOOD_GEOS seperti papan lain. */
+{
+  const cv = document.createElement('canvas');
+  cv.width = 1024; cv.height = 308;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#6f5133'; c.fillRect(0, 0, cv.width, cv.height);
+  c.strokeStyle = 'rgba(253,252,248,.45)'; c.lineWidth = 5;
+  c.strokeRect(12, 12, cv.width - 24, cv.height - 24);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  const fit = (txt, size)=>{
+    do { c.font = `800 ${size}px Outfit, sans-serif`; size -= 2; }
+    while(c.measureText(txt).width > cv.width - 56 && size > 18);
+  };
+  fit('HEWAN BERIKUTNYA', 72);
+  c.fillStyle = '#efd9ae'; c.fillText('HEWAN BERIKUTNYA', cv.width/2, 62);
+  fit('DIPILIH DARI KOMENTAR TERATAS', 64);
+  c.fillStyle = '#fdfcf8'; c.fillText('DIPILIH DARI KOMENTAR TERATAS', cv.width/2, 142);
+  c.fillStyle = 'rgba(253,252,248,.5)'; c.fillRect(112, 196, cv.width - 224, 3);
+  fit('USULKAN HEWANMU DI VIDEO TERBARU', 52);
+  c.fillStyle = '#e6e6fa'; c.fillText('USULKAN HEWANMU DI VIDEO TERBARU', cv.width/2, 248);
+  placeSign({ w:10, h:3, cy:2, tex:new THREE.CanvasTexture(cv) }, 24, 80, 0);
 }
 
 /* Warna dasar tiap blok + papan nama blok di tepi jalan */
