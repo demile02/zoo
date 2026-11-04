@@ -39,6 +39,14 @@
   #joyKnob.rel{transition:transform .18s ease}
   #hint .touch{display:none}
   @media (pointer:coarse){ #hint .keys{display:none} #hint .touch{display:inline} }
+  #bubble{position:absolute;z-index:7;max-width:230px;background:var(--paper);border-radius:16px;box-shadow:var(--card-shadow);padding:9px 13px 10px;transform:translate(-50%,-118%) scale(.85);opacity:0;transition:opacity .18s ease,transform .18s ease;pointer-events:none}
+  #bubble.show{opacity:1;transform:translate(-50%,-118%) scale(1)}
+  #bubble::after{content:'';position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:8px solid transparent;border-top-color:var(--paper);border-bottom:0}
+  #bubbleName{font-size:11px;font-weight:800;letter-spacing:.08em;color:#6F66A3;text-transform:uppercase}
+  #bubbleText{font-size:13.5px;font-weight:600;line-height:1.35;margin-top:1px}
+  #talkBtn{position:absolute;z-index:8;right:16px;bottom:16px;background:#6F66A3;color:#fff;border:0;font:inherit;font-weight:800;font-size:15px;padding:13px 20px;border-radius:999px;box-shadow:0 12px 26px rgba(46,42,36,.3);opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease;cursor:pointer}
+  #talkBtn.show{opacity:1;transform:none;pointer-events:auto}
+  #talkBtn:active{transform:scale(.96)}
   #err{position:fixed;inset:0;display:none;place-items:center;background:var(--paper);z-index:50;padding:24px;text-align:center}
   #err .box{max-width:420px}
   #err h1{font-family:'Reenie Beanie',cursive;font-size:40px;color:var(--leaf)}
@@ -66,6 +74,8 @@
   <div class="from" id="cardFrom"></div>
 </div>
 
+<div id="bubble"><div id="bubbleName"></div><div id="bubbleText"></div></div>
+<button id="talkBtn" type="button"></button>
 <div id="touchUI"></div>
 <div id="joy"><div id="joyKnob"></div></div>
 
@@ -416,6 +426,26 @@ function tree(x,z,s=1){
  [50,-84],[68,-60],[54,-32],[72,-16],[-100,-80],[-72,-62],[-116,-38],
  [-38,-70],[38,-24],[-38,70],[100,48],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
 
+/* ================= PENGATURAN DEVELOPER: DIALOG KARAKTER =================
+   Kalimat yang muncul di bubble (dan dibacakan suara) saat tombol Sapa
+   ditekan di dekat karakter itu. Tambah/ubah kalimat di sini saja;
+   urutannya dipakai bergiliran setiap tombol ditekan. */
+const DIALOG = {
+  'Galang': [
+    'Halo! Aku Galang, kera ekor panjang. Penghuni pertama zoo ini!',
+    'Kamu tahu? Namaku berasal dari komentar paling disukai di video hari pertama.',
+    'Besok ada teman baru yang datang. Menurutmu, hewan apa ya?',
+    'Kalau kamu yang mengusulkan hewan berikutnya, kamu mau usul apa?',
+  ],
+  'Pak Direktur': [
+    'Selamat datang di Kebun Binatang Komen! Zoo ini dibangun dari komentar kalian.',
+    'Setiap hari ada satu hewan baru yang datang, dan namanya adalah nama pengusulnya.',
+    'Mau hewan usulmu tinggal di sini? Tulis usulmu di komentar video terbaru!',
+    'Kandang yang masih kosong menunggu komentar teratas. Bisa jadi giliranmu besok.',
+  ],
+};
+const INTERACT = [];
+
 /* Kera low-poly penghuni A1 */
 function monkey(){
   const g = new THREE.Group();
@@ -446,42 +476,65 @@ function monkey(){
   cyl(2.2,2.8,1,MAT.rock,-109,.5,35);
   const m = monkey(); m.position.set(-109, 1, 35); m.rotation.y = .7;
   scene.add(m);
+  INTERACT.push({ name:'Galang', x:-109, z:35, top:5.8, group:m, baseY:1, idx:0, speakT:-9, lines: DIALOG['Galang'] });
 }
 
-/* Pengunjung: manusia low-poly berkaki dan bertangan. Kaki dan tangan
-   berporos di pinggul dan bahu supaya bisa dianimasikan berjalan. */
-const visitor = new THREE.Group();
-let legL, legR, armL, armR, walkPhase = 0, swingAmp = 0;
-{
-  const shirt = new THREE.MeshLambertMaterial({ color:0xE86A2C });
-  const skin = new THREE.MeshLambertMaterial({ color:0xe8b98d });
-  const pants = new THREE.MeshLambertMaterial({ color:0x44536b });
+/* Manusia low-poly berkaki dan bertangan: kaki berporos di pinggul,
+   badan+tangan+kepala satu kelompok berporos di pinggang supaya bisa
+   condong saat lari atau miring saat menyamping. */
+function makeHumanoid(o){
+  const g = new THREE.Group();
+  const shirt = new THREE.MeshLambertMaterial({ color:o.shirt });
+  const skin = new THREE.MeshLambertMaterial({ color:o.skin });
+  const pants = new THREE.MeshLambertMaterial({ color:o.pants });
   const shoe = new THREE.MeshLambertMaterial({ color:0x333a45 });
-  const capM = new THREE.MeshLambertMaterial({ color:0x4E7A3A });
-  const limb = (x, y, z)=>{
-    const g = new THREE.Group(); g.position.set(x, y, z); visitor.add(g); return g;
+  const hatM = new THREE.MeshLambertMaterial({ color:o.hat });
+  const P = { group: g };
+  const limb = (parent, x, y, z)=>{
+    const p = new THREE.Group(); p.position.set(x, y, z); parent.add(p); return p;
   };
-  legL = limb(-.21, .98, 0); legR = limb(.21, .98, 0);
-  for(const leg of [legL, legR]){
+  P.legL = limb(g, -.21, .98, 0); P.legR = limb(g, .21, .98, 0);
+  for(const leg of [P.legL, P.legR]){
     box(.3, .92, .34, pants, 0, -.46, 0, leg);
     box(.3, .13, .52, shoe, 0, -.9, .07, leg);
   }
-  cyl(.42,.5,1.05,shirt,0,1.45,0,visitor,12);
-  armL = limb(-.58, 1.9, 0); armR = limb(.58, 1.9, 0);
-  armL.rotation.z = .07; armR.rotation.z = -.07;
-  for(const arm of [armL, armR]){
+  P.body = limb(g, 0, .95, 0);
+  cyl(.42,.5,1.05,shirt,0,.5,0,P.body,12);
+  P.armL = limb(P.body, -.58, .95, 0); P.armR = limb(P.body, .58, .95, 0);
+  P.armL.rotation.z = .07; P.armR.rotation.z = -.07;
+  for(const arm of [P.armL, P.armR]){
     cyl(.13,.12,.8,shirt,0,-.36,0,arm,8);
     const hand = new THREE.Mesh(new THREE.SphereGeometry(.13,8,8), skin);
     hand.position.y = -.8; arm.add(hand);
   }
   const head = new THREE.Mesh(new THREE.SphereGeometry(.42,12,10), skin);
-  head.position.y = 2.38; visitor.add(head);
-  cyl(.45,.46,.18,capM,0,2.68,0,visitor,12);
-  box(.52,.06,.4,capM,0,2.6,.38,visitor);
-  visitor.traverse(o=>{ if(o.isMesh) o.castShadow = true; });
+  head.position.y = 1.43; P.body.add(head);
+  if(o.hatStyle === 'brim'){
+    cyl(.46,.48,.16,hatM,0,1.74,0,P.body,12);
+    cyl(.74,.74,.05,hatM,0,1.66,0,P.body,16);
+  } else {
+    cyl(.45,.46,.18,hatM,0,1.73,0,P.body,12);
+    box(.52,.06,.4,hatM,0,1.65,.38,P.body);
+  }
+  g.traverse(m=>{ if(m.isMesh) m.castShadow = true; });
+  return P;
 }
+
+/* Pengunjung = karakter yang dikendalikan pemain */
+const VP = makeHumanoid({ shirt:0xE86A2C, skin:0xe8b98d, pants:0x44536b, hat:0x4E7A3A, hatStyle:'cap' });
+const visitor = VP.group;
+const legL = VP.legL, legR = VP.legR, armL = VP.armL, armR = VP.armR, bodyG = VP.body;
+let walkPhase = 0, swingAmp = 0;
 visitor.position.set(0, 0, 87);
 scene.add(visitor);
+
+/* Pak Direktur (karakter developer) berdiri di panggung edukasi di belakang podium */
+const DEV = makeHumanoid({ shirt:0xC9A86A, skin:0xe8b98d, pants:0x5b4632, hat:0x8a6742, hatStyle:'brim' });
+DEV.group.position.set(-16, .7, 12.4);
+scene.add(DEV.group);
+box(1.1, 1.15, .6, MAT.woodD, -16, 1.28, 14.1);
+box(1.34, .08, .84, MAT.wood, -16, 1.9, 14.1);
+INTERACT.push({ name:'Pak Direktur', x:-16, z:12.4, top:4.6, group:DEV.group, baseY:.7, parts:DEV, idx:0, speakT:-9, lines: DIALOG['Pak Direktur'] });
 /* Gerak: WASD/panah + joystick sentuh */
 const keys = {};
 addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; });
@@ -617,6 +670,65 @@ function updateCard(){
   card.classList.add('show');
 }
 
+/* Interaksi karakter: dekati karakter sampai tombol Sapa muncul, tekan
+   tombolnya (atau tombol E) dan karakter menjawab lewat bubble + suara
+   sambil melompat (hewan) atau melambai (Pak Direktur). */
+const talkBtn = document.getElementById('talkBtn');
+const bubble = document.getElementById('bubble');
+const bubbleName = document.getElementById('bubbleName');
+const bubbleText = document.getElementById('bubbleText');
+let nearChar = null, bubbleFor = null, bubbleUntil = 0;
+function speakLine(text){
+  try{
+    if(!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'id-ID'; u.rate = 1.03; u.pitch = 1.2;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);
+  }catch(_){}
+}
+function interact(){
+  if(!nearChar) return;
+  const c = nearChar;
+  const line = c.lines[c.idx % c.lines.length]; c.idx++;
+  bubbleName.textContent = c.name;
+  bubbleText.textContent = line;
+  bubbleFor = c; bubbleUntil = performance.now() + 4200;
+  bubble.classList.add('show');
+  c.speakT = clock.elapsedTime;
+  speakLine(line);
+}
+talkBtn.addEventListener('click', interact);
+addEventListener('keydown', e=>{ if(e.key.toLowerCase() === 'e') interact(); });
+const projV = new THREE.Vector3();
+function updateInteract(t){
+  let best = 1e9; nearChar = null;
+  for(const c of INTERACT){
+    const d = Math.hypot(visitor.position.x - c.x, visitor.position.z - c.z);
+    if(d < best){ best = d; nearChar = c; }
+  }
+  if(!nearChar || best > 10) nearChar = null;
+  if(nearChar){
+    talkBtn.textContent = '💬 Sapa ' + nearChar.name;
+    talkBtn.classList.add('show');
+  } else talkBtn.classList.remove('show');
+  for(const c of INTERACT){
+    const p = (t - c.speakT) / .7;
+    if(c.parts){
+      c.parts.armR.rotation.z = (p >= 0 && p < 1.8) ? 2.3 + Math.sin(t * 11) * .35 : -.07;
+    } else if(c.group){
+      c.group.position.y = (p >= 0 && p < 1) ? c.baseY + Math.sin(p * Math.PI) * .8 : c.baseY;
+    }
+  }
+  if(bubbleFor && performance.now() < bubbleUntil){
+    projV.set(bubbleFor.x, bubbleFor.top, bubbleFor.z).project(camera);
+    if(projV.z < 1){
+      bubble.style.left = (projV.x * .5 + .5) * viewW() + 'px';
+      bubble.style.top = (-projV.y * .5 + .5) * viewH() + 'px';
+      bubble.style.visibility = 'visible';
+    } else bubble.style.visibility = 'hidden';
+  } else { bubbleFor = null; bubble.classList.remove('show'); }
+}
+
 /* Gabung semua geometri statis per material menjadi satu mesh per kelompok */
 function mergeInto(list, mat){
   if(!list.length) return;
@@ -665,12 +777,15 @@ function tick(){
   if(keys['d'] || keys['arrowright']) ix += 1;
   ix += joyVec.x; iz -= joyVec.y;
   const len = Math.hypot(ix,iz);
+  const gait = Math.min(1, len);
   const moving = len > .02;
+  let fwd = 0, side = 0;
   if(moving){
-    const s = Math.min(1, len) / (len || 1);
     const fx = Math.sin(heading), fz = Math.cos(heading);
-    const mx = (fx * iz - fz * ix) * s, mz = (fz * iz + fx * ix) * s;
-    const speed = 17;
+    const mx = (fx * iz - fz * ix) / (len || 1), mz = (fz * iz + fx * ix) / (len || 1);
+    fwd = mx * fx + mz * fz;
+    side = mx * fz - mz * fx;
+    const speed = 17 * gait;
     let nx = visitor.position.x + mx * speed * dt;
     let nz = visitor.position.z + mz * speed * dt;
     nx = THREE.MathUtils.clamp(nx, -126, 126);
@@ -692,12 +807,24 @@ function tick(){
     visitor.position.x = nx; visitor.position.z = nz;
   }
   visitor.rotation.y = heading;
-  if(moving) walkPhase += dt * 11;
+  /* Gaya jalan dibedakan dari besar dan arah geraknya:
+     santai = langkah kecil pelan, lari = langkah lebar cepat + badan condong,
+     menyamping = kaki menggunting ke samping + badan miring. */
+  if(moving) walkPhase += dt * (6.5 + 7.5 * gait);
   swingAmp += ((moving ? 1 : 0) - swingAmp) * Math.min(1, dt * 10);
-  const sw = Math.sin(walkPhase) * .6 * swingAmp;
-  legL.rotation.x = sw; legR.rotation.x = -sw;
-  armL.rotation.x = -sw * .85; armR.rotation.x = sw * .85;
-  visitor.position.y = Math.abs(Math.cos(walkPhase)) * .07 * swingAmp;
+  const amp = (.3 + .5 * gait) * swingAmp;
+  const ph = Math.sin(walkPhase);
+  const fW = Math.min(1, Math.abs(fwd) * 1.6), sW = Math.min(1, Math.abs(side) * 1.6);
+  const fSign = fwd < 0 ? -1 : 1;
+  legL.rotation.x = ph * amp * fW * fSign;
+  legR.rotation.x = -ph * amp * fW * fSign;
+  legL.rotation.z = ph * amp * .7 * sW;
+  legR.rotation.z = -ph * amp * .7 * sW;
+  armL.rotation.x = -legL.rotation.x * .85;
+  armR.rotation.x = -legR.rotation.x * .85;
+  bodyG.rotation.x = (.04 + .2 * gait * fW) * swingAmp;
+  bodyG.rotation.z = -side * .14 * swingAmp;
+  visitor.position.y = Math.abs(Math.cos(walkPhase)) * (.03 + .05 * gait) * swingAmp;
 
   const fx = Math.sin(heading), fz = Math.cos(heading);
   const want = new THREE.Vector3(visitor.position.x - fx * 13, 9.5, visitor.position.z - fz * 13);
@@ -706,6 +833,7 @@ function tick(){
   camera.lookAt(visitor.position.x + fx * 6, 2.2, visitor.position.z + fz * 6);
 
   updateCard();
+  updateInteract(t);
   renderer.render(scene, camera);
 }
 tick();
