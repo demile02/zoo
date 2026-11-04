@@ -44,9 +44,11 @@
   #bubble::after{content:'';position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);border:8px solid transparent;border-top-color:var(--paper);border-bottom:0}
   #bubbleName{font-size:11px;font-weight:800;letter-spacing:.08em;color:#6F66A3;text-transform:uppercase}
   #bubbleText{font-size:13.5px;font-weight:600;line-height:1.35;margin-top:1px}
-  #talkBtn{position:absolute;z-index:8;right:16px;bottom:16px;background:#6F66A3;color:#fff;border:0;font:inherit;font-weight:800;font-size:15px;padding:13px 20px;border-radius:999px;box-shadow:0 12px 26px rgba(46,42,36,.3);opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease;cursor:pointer}
+  #talkBtn{position:absolute;z-index:8;right:16px;bottom:92px;background:#6F66A3;color:#fff;border:0;font:inherit;font-weight:800;font-size:15px;padding:13px 20px;border-radius:999px;box-shadow:0 12px 26px rgba(46,42,36,.3);opacity:0;transform:translateY(16px);pointer-events:none;transition:opacity .2s ease,transform .2s ease;cursor:pointer}
   #talkBtn.show{opacity:1;transform:none;pointer-events:auto}
   #talkBtn:active{transform:scale(.96)}
+  #jumpBtn{position:absolute;z-index:8;right:16px;bottom:16px;width:62px;height:62px;border-radius:50%;background:var(--paper);color:var(--ink);border:2px solid #E6E6FA;font:inherit;font-weight:800;font-size:12.5px;box-shadow:0 12px 26px rgba(46,42,36,.25);cursor:pointer}
+  #jumpBtn:active{transform:scale(.93)}
   #err{position:fixed;inset:0;display:none;place-items:center;background:var(--paper);z-index:50;padding:24px;text-align:center}
   #err .box{max-width:420px}
   #err h1{font-family:'Reenie Beanie',cursive;font-size:40px;color:var(--leaf)}
@@ -76,6 +78,7 @@
 
 <div id="bubble"><div id="bubbleName"></div><div id="bubbleText"></div></div>
 <button id="talkBtn" type="button"></button>
+<button id="jumpBtn" type="button">Lompat</button>
 <div id="touchUI"></div>
 <div id="joy"><div id="joyKnob"></div></div>
 
@@ -183,8 +186,34 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x9CC184);
-scene.fog = new THREE.Fog(0x9CC184, 150, 400);
+scene.background = new THREE.Color(0x8ec9ee);
+scene.fog = new THREE.Fog(0xd8ecf7, 150, 420);
+/* Langit: kubah gradasi biru (warna per titik) + awan gumpal yang melayang */
+const CLOUDS = [];
+{
+  const geo = new THREE.SphereGeometry(520, 20, 12);
+  const pos = geo.attributes.position;
+  const cols = [];
+  const cTop = new THREE.Color(0x4aa8ec), cHor = new THREE.Color(0xe8f6ff), cTmp = new THREE.Color();
+  for(let i = 0; i < pos.count; i++){
+    const h = THREE.MathUtils.clamp(pos.getY(i) / 520, 0, 1);
+    cTmp.copy(cHor).lerp(cTop, Math.pow(h, .55));
+    cols.push(cTmp.r, cTmp.g, cTmp.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors:true, side:THREE.BackSide, fog:false })));
+  const cloudMat = new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:.92, fog:false });
+  const puff = [[-140,-120],[-60,90],[30,-130],[110,95],[190,-120],[-200,80],[80,-70],[-20,60],[160,60],[-110,-55],[0,160],[220,40],[-240,-30],[60,180]];
+  for(const [x, z] of puff){
+    const c = new THREE.Group();
+    const s = .8 + Math.random() * .9;
+    const a = new THREE.Mesh(new THREE.SphereGeometry(7 * s, 10, 8), cloudMat); a.scale.y = .45; c.add(a);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(5 * s, 10, 8), cloudMat); b.position.set(6 * s, .6, 1); b.scale.y = .45; c.add(b);
+    const d2 = new THREE.Mesh(new THREE.SphereGeometry(4.4 * s, 10, 8), cloudMat); d2.position.set(-6 * s, .4, -1); d2.scale.y = .45; c.add(d2);
+    c.position.set(x, 62 + Math.random() * 22, z);
+    scene.add(c); CLOUDS.push(c);
+  }
+}
 
 const camera = new THREE.PerspectiveCamera(55, viewW()/viewH(), .1, 600);
 
@@ -406,6 +435,26 @@ buildPosts(POST_B, .09, 1.5);
   collideBox(-16, 14, 13, 13);
 }
 
+/* Tembok keliling zoo, di luar garis pagar kayu: dinding krem bertopi bata,
+   terputus hanya di gerbang utama selatan, menara batu di empat sudut. */
+{
+  const seg = (len, x, z, rot)=>{
+    const g = new THREE.BoxGeometry(len, 3, .8);
+    if(rot) g.rotateY(rot);
+    g.translate(x, 1.5, z); WALL_GEOS.push(g);
+    const c = new THREE.BoxGeometry(len, .45, 1.15);
+    if(rot) c.rotateY(rot);
+    c.translate(x, 3.2, z); ROOF_GEOS.push(c);
+  };
+  seg(264, 0, -97, 0);
+  seg(195, -131, 0, Math.PI/2);
+  seg(195, 131, 0, Math.PI/2);
+  seg(124, -69, 97, 0);
+  seg(124, 69, 97, 0);
+  for(const [x, z] of [[-131,-97],[131,-97],[-131,97],[131,97]])
+    cyl(1, 1.25, 4.4, MAT.rock, x, 2.2, z, scene, 10);
+}
+
 /* Bangunan fasilitas: dinding krem + atap coklat bata + papan nama */
 for(const b of BUILDINGS){
   const wg = new THREE.BoxGeometry(b.w, 3, b.d); wg.translate(b.cx, 1.5, b.cz); WALL_GEOS.push(wg);
@@ -525,6 +574,8 @@ const VP = makeHumanoid({ shirt:0xE86A2C, skin:0xe8b98d, pants:0x44536b, hat:0x4
 const visitor = VP.group;
 const legL = VP.legL, legR = VP.legR, armL = VP.armL, armR = VP.armR, bodyG = VP.body;
 let walkPhase = 0, swingAmp = 0;
+let jumpY = 0, jumpV = 0;
+function doJump(){ if(jumpY <= 0 && jumpV === 0) jumpV = 9.2; }
 visitor.position.set(0, 0, 87);
 scene.add(visitor);
 
@@ -620,15 +671,15 @@ let heading = Math.PI;
 }
 
 /* Kartu info: petak terdekat dari titik pandang di depan petak */
-const SPOTS = PLOTS.map(p=>({ id:p.code, x:p.cx, z:p.cz + p.d/2, plot:p }));
+const SPOTS = PLOTS.map(p=>({ id:p.code, x:p.cx, z:p.cz + p.d/2, plot:p, radius:Math.max(p.w, p.d)/2 + 6 }));
 SPOTS.push(
-  { id:'E1', x:56, z:37, fixed:{ species:'Blok E · Aviari', name:'E1 · Kubah Burung Tropis',
+  { id:'E1', x:56, z:37, radius:13, fixed:{ species:'Blok E · Aviari', name:'E1 · Kubah Burung Tropis',
     text:'Kubah jaring besar. Pengunjung masuk dan berjalan di antara burung tropis yang terbang bebas.',
     from:'Masih kosong, menunggu komentar teratas' } },
-  { id:'DANAU', x:-102, z:-12, fixed:{ species:'Blok D · Zona Air', name:'Danau Zoo',
+  { id:'DANAU', x:-102, z:-12, radius:13, fixed:{ species:'Blok D · Zona Air', name:'Danau Zoo',
     text:'Sumber air zona barat, sekarang jauh lebih besar. Tepi danau ini nanti jadi tempat melihat penghuni D1, D2, dan D3.',
     from:'Bagian dari denah induk v1.1' } },
-  { id:'PANGGUNG', x:-16, z:21, fixed:{ species:'Area Edukasi', name:'Panggung Edukasi',
+  { id:'PANGGUNG', x:-16, z:21, radius:12, fixed:{ species:'Area Edukasi', name:'Panggung Edukasi',
     text:'Di sini direktur mengumumkan hewan baru dan keeper bercerita soal penghuni zoo.',
     from:'Bagian dari denah induk v1.1' } },
 );
@@ -646,10 +697,10 @@ function updateCard(){
     const d = Math.hypot(visitor.position.x - s.x, visitor.position.z - s.z);
     if(d < best){ best = d; near = s; }
   }
-  const id = (near && best < 11) ? near.id : null;
+  const id = (near && best <= near.radius) ? near.id : null;
   if(id === cardFor) return;
   cardFor = id;
-  if(!near){ card.classList.remove('show'); return; }
+  if(!id){ card.classList.remove('show'); return; }
   if(near.fixed){
     cardEls.species.textContent = near.fixed.species;
     cardEls.name.textContent = near.fixed.name;
@@ -699,6 +750,8 @@ function interact(){
 }
 talkBtn.addEventListener('click', interact);
 addEventListener('keydown', e=>{ if(e.key.toLowerCase() === 'e') interact(); });
+document.getElementById('jumpBtn').addEventListener('click', doJump);
+addEventListener('keydown', e=>{ if(e.code === 'Space'){ e.preventDefault(); doJump(); } });
 const projV = new THREE.Vector3();
 function updateInteract(t){
   let best = 1e9; nearChar = null;
@@ -824,7 +877,11 @@ function tick(){
   armR.rotation.x = -legR.rotation.x * .85;
   bodyG.rotation.x = (.04 + .2 * gait * fW) * swingAmp;
   bodyG.rotation.z = -side * .14 * swingAmp;
-  visitor.position.y = Math.abs(Math.cos(walkPhase)) * (.03 + .05 * gait) * swingAmp;
+  if(jumpV !== 0 || jumpY > 0){
+    jumpV -= 26 * dt; jumpY += jumpV * dt;
+    if(jumpY <= 0){ jumpY = 0; jumpV = 0; }
+  }
+  visitor.position.y = Math.abs(Math.cos(walkPhase)) * (.03 + .05 * gait) * swingAmp + jumpY;
 
   const fx = Math.sin(heading), fz = Math.cos(heading);
   const want = new THREE.Vector3(visitor.position.x - fx * 13, 9.5, visitor.position.z - fz * 13);
@@ -834,6 +891,7 @@ function tick(){
 
   updateCard();
   updateInteract(t);
+  for(const c of CLOUDS){ c.position.x += dt * .7; if(c.position.x > 290) c.position.x = -290; }
   renderer.render(scene, camera);
 }
 tick();
