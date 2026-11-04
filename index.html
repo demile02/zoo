@@ -299,7 +299,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0452';
+const BUILD = '20261105-0457';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1459,6 +1459,29 @@ function updateInteract(t){
     } else bubble.style.visibility = 'hidden';
   } else { bubbleFor = null; bubble.classList.remove('show'); }
 }
+
+/* Kursi taman/bangku: 2 di plaza, 2 di tepi timur danau besar; kayu ikut
+   gabungan WOOD_GEOS (+0 draw call), ada tabrakan supaya tidak ditembus. */
+function bench(x, z, ry){
+  const parts = [
+    [2.2, .08, .6, 0, .45, 0],
+    [2.2, .5, .08, 0, .78, -.26],
+    [.12, .45, .5, -.95, .225, 0],
+    [.12, .45, .5, .95, .225, 0],
+  ];
+  for(const [w, h, d, ox, oy, oz] of parts){
+    const g = new THREE.BoxGeometry(w, h, d);
+    g.translate(ox, oy, oz); g.rotateY(ry); g.translate(x, 0, z);
+    WOOD_GEOS.push(g);
+  }
+  const bw = 2.2 * Math.abs(Math.cos(ry)) + .6 * Math.abs(Math.sin(ry));
+  const bd = 2.2 * Math.abs(Math.sin(ry)) + .6 * Math.abs(Math.cos(ry));
+  collideBox(x, z, bw, bd);
+}
+bench(-20, 72, 0);
+bench(-28, 62, Math.PI / 2);
+bench(-88, -24, -Math.PI / 2);
+bench(-88, -38, -Math.PI / 2);
 
 /* Gabung semua geometri statis per material menjadi satu mesh per kelompok */
 function mergeInto(list, mat){
