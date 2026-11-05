@@ -267,7 +267,7 @@ const BUILDINGS = [
   { label:'Gudang', cx:-76, cz:84, w:9, d:9 },
   { label:'Loket', cx:-14, cz:61, w:11, d:7 },
   { label:'Papan direktur', cx:10, cz:61, w:13, d:7 },
-  { label:'KDMP', tag:'KOPERASI DESA MERAH PUTIH', cx:28, cz:71, w:12, d:7 },
+  { label:'KDMP', tag:'KOPERASI DESA MERAH PUTIH', cx:28, cz:71, w:7, d:12 },
   { label:'Mushola', cx:-14, cz:84, w:11, d:7 },
   { label:'Suvenir', cx:4, cz:84, w:9, d:7 },
   { label:'WC', cx:16, cz:84, w:7, d:7 },
@@ -294,7 +294,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-2031';
+const BUILD = '20261105-2043';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1121,10 +1121,7 @@ const POST_A = [], POST_B = [];
   c.fillStyle = 'rgba(253,252,248,.5)'; c.fillRect(112, 196, cv.width - 224, 3);
   fit('USULKAN HEWANMU DI VIDEO TERBARU', 52);
   c.fillStyle = '#e6e6fa'; c.fillText('USULKAN HEWANMU DI VIDEO TERBARU', cv.width/2, 248);
-  /* x 39 (digeser dari tengah plaza): supaya papan sambutan tidak
-     menutupi muka KDMP di seberangnya (koreksi Demile 5 Nov 19:42
-     + 20:10 — KDMP menghadap jalan, papannya yang minggir). */
-  placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 39, 80, 0);
+  placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 27, 80, 0);
 }
 
 /* Warna dasar tiap blok + papan nama blok di tepi jalan.
@@ -1430,29 +1427,29 @@ function kdmpLogo(){
 /* KDMP (Koperasi Desa Merah Putih) di lahan kosong Plaza Masuk —
    desain gerai aslinya (riset foto 5 Nov malam): dinding putih
    panjang, deretan PINTU LIPAT MERAH berpilaster putih, selasar
-   beratap datar bertiang putih, panel logo resmi di dinding ujung
-   timur, atap logam abu. Menghadap JALAN masuk di selatan (koreksi
-   Demile 20:10: "pintu-pintunya ya madep ke jalan dong" — putaran
-   ke barat sebelumnya membuat bangunannya menghadap ke dalam).
-   Supaya mukanya tidak lagi tertutup papan gerbang utama, papan
-   gerbang digeser ke timur (lihat papan sambutan). */
+   beratap datar bertiang putih, panel logo resmi di dinding
+   ujung, atap logam abu. Menghadap TIMUR ke jalan di sebelahnya
+   (keputusan akhir Demile 5 Nov 20:29: "bukan jalan yang ini,
+   tapi yg sebelahnya — timur berarti"; dua arah sebelumnya —
+   selatan lalu barat — dibatalkan). Panel logo resmi di dinding
+   ujung utara; papan gerbang utama tetap di posisi awalnya. */
 function hiasKDMP(b){
   box(b.w + .95, .14, b.d + .95, MAT.rock, b.cx, 5.18, b.cz);
-  for(const dx of [-4.5, -1.5, 1.5, 4.5]){
-    box(2.3, 3, .12, MAT_MERAH, b.cx + dx, 1.5, b.cz + b.d/2 + .04);
-    for(const gx of [-.55, 0, .55])
-      box(.05, 2.9, .03, MAT.woodD, b.cx + dx + gx, 1.5, b.cz + b.d/2 + .11);
-    box(.7, .09, .05, MAT.woodD, b.cx + dx, 1.35, b.cz + b.d/2 + .12);
+  for(const dz of [-4.5, -1.5, 1.5, 4.5]){
+    box(.12, 3, 2.3, MAT_MERAH, b.cx + b.w/2 + .04, 1.5, b.cz + dz);
+    for(const gz of [-.55, 0, .55])
+      box(.03, 2.9, .05, MAT.woodD, b.cx + b.w/2 + .11, 1.5, b.cz + dz + gz);
+    box(.05, .09, .7, MAT.woodD, b.cx + b.w/2 + .12, 1.35, b.cz + dz);
   }
-  box(b.w + .6, .12, 1.9, MAT_PUTIH, b.cx, 3.28, b.cz + b.d/2 + .95);
-  for(const dx of [-5.5, -2.6, 2.6, 5.5]){
-    cyl(.06, .06, 3.28, MAT_PUTIH, b.cx + dx, 1.64, b.cz + b.d/2 + 1.78, scene, 8);
-    collideBox(b.cx + dx, b.cz + b.d/2 + 1.78, .3, .3);
+  box(1.9, .12, b.d + .6, MAT_PUTIH, b.cx + b.w/2 + .95, 3.28, b.cz);
+  for(const dz of [-5.5, -2.6, 2.6, 5.5]){
+    cyl(.06, .06, 3.28, MAT_PUTIH, b.cx + b.w/2 + 1.78, 1.64, b.cz + dz, scene, 8);
+    collideBox(b.cx + b.w/2 + 1.78, b.cz + dz, .3, .3);
   }
   const panel = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.5),
     new THREE.MeshBasicMaterial({ map: kdmpLogo() }));
-  panel.position.set(b.cx + b.w/2 + .09, 2.7, b.cz);
-  panel.rotation.y = Math.PI / 2;
+  panel.position.set(b.cx, 2.7, b.cz - b.d/2 - .09);
+  panel.rotation.y = Math.PI;
   scene.add(panel);
 }
 function bangunFoodCourt(b){
@@ -1530,6 +1527,8 @@ for(const b of BUILDINGS){
   if(b.label !== 'Papan direktur'){
     if(b.label === 'Mushola')
       placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx - b.w/2 - 1.6, b.cz, -Math.PI / 2);
+    else if(b.label === 'KDMP')
+      placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx + b.w/2 + 2.6, b.cz, Math.PI / 2);
     else {
       const bsz = b.label === 'Akuarium' ? b.cz + 10 + 1.6 : b.cz + b.d/2 + 1.6;
       placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx, bsz, 0);
