@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0913';
+const BUILD = '20261105-0952';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -386,15 +386,15 @@ function collideBox(cx,cz,w,d,low){
 /* Geometri statis dikumpulkan per material lalu digabung jadi satu mesh
    per kelompok: ratusan benda statis turun jadi segelintir draw call. */
 const WOOD_GEOS = [], RAIL_GEOS = [], WALL_GEOS = [], ROOF_GEOS = [], TRUNK_GEOS = [], LEAF_GEOS = [], LEAF2_GEOS = [], ROCK_GEOS = [];
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(300,220), MAT.grass);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(340,250), MAT.grass);
 ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
 scene.add(ground);
 
 /* Jalan pasir mengikuti denah v1.1: keliling + sabuk antarbaris + poros antarblok */
-flatRect(0, -88, 248, 7, 0xe3cf9e, .02);
-flatRect(0, 88, 248, 7, 0xe3cf9e, .02);
-flatRect(-120, 0, 7, 176, 0xe3cf9e, .02);
-flatRect(120, 0, 7, 176, 0xe3cf9e, .02);
+flatRect(0, -95, 280, 7, 0xe3cf9e, .02);
+flatRect(0, 95, 280, 7, 0xe3cf9e, .02);
+flatRect(-128, 0, 7, 214, 0xe3cf9e, .02);
+flatRect(128, 0, 7, 214, 0xe3cf9e, .02);
 flatRect(0, -48, 248, 7, 0xe3cf9e, .02);
 flatRect(0, 0, 248, 7, 0xe3cf9e, .02);
 flatRect(0, 48, 248, 7, 0xe3cf9e, .02);
@@ -402,20 +402,21 @@ flatRect(-43, 0, 7, 176, 0xe3cf9e, .02);
 flatRect(43, 0, 7, 176, 0xe3cf9e, .02);
 flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
 
-/* Jalur kereta keliling: lingkar DALAM mengikuti koridor jalan sabuk
-   (x -45.5..39, z -45.5..45.5) — rel lama x=±114/z=±84 menabrak petak
-   karnivora, savana, reptil dan bangunan plaza, jadi dipindah ke sini.
-   Sisi timur menyempit ke x=39: celah satu-satunya di antara tepi blok
-   (x=38), petak I1 (x=40) dan petak E4 (x=41). */
-flatRect(-45.5, 0, 1.9, 91, 0x8a8578, .03);
-flatRect(39, 0, 1.9, 91, 0x8a8578, .03);
-flatRect(-3.25, -45.5, 84.5, 1.9, 0x8a8578, .03);
-flatRect(-3.25, 45.5, 84.5, 1.9, 0x8a8578, .03);
+/* Jalur kereta keliling: lingkar LUAR sesuai denah induk v1.1, di
+   koridor antara jalan sabuk luar dan pagar keliling (x ±134, z ±101).
+   Koridor ini ada karena tembok dan pagar sudah digeser keluar; rel
+   persegi lama x=±114/z=±84 menabrak petak karena dulu tembok terlalu
+   rapat ke blok. Stasiun: Gerbang (selatan), Savana (timur, di B4),
+   Danau (barat, di danau Blok D). */
+flatRect(-134, 0, 1.9, 202, 0x8a8578, .03);
+flatRect(134, 0, 1.9, 202, 0x8a8578, .03);
+flatRect(0, -101, 268, 1.9, 0x8a8578, .03);
+flatRect(0, 101, 268, 1.9, 0x8a8578, .03);
 
 /* Kereta keliling: lokomotif + dua gerbong mengikuti rel persegi bertepi
    bundar, berhenti sebentar di tiap stasiun. */
 const TRAIN = (()=>{
-  const X0 = -45.5, X1 = 39, Z0 = -45.5, Z1 = 45.5, R = 7;
+  const X0 = -134, X1 = 134, Z0 = -101, Z1 = 101, R = 9;
   const pts = [];
   const line = (x0, z0, x1, z1)=>{
     const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 1.2));
@@ -453,7 +454,7 @@ const TRAIN = (()=>{
     return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f,
              ang: Math.atan2(b[0] - a[0], b[1] - a[1]) };
   }
-  const stopsAt = [[17, Z1], [24, Z0], [X0, -24]].map(([sx, sz])=>{
+  const stopsAt = [[17, Z1], [X1, -63], [X0, -24]].map(([sx, sz])=>{
     let best = 0, bd = 1e9;
     pts.forEach((p, i)=>{ const d = Math.hypot(p[0] - sx, p[1] - sz); if(d < bd){ bd = d; best = i; } });
     return cum[best];
@@ -587,7 +588,7 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-[[17,42.2,'Stasiun Gerbang',0],[24,-42.2,'Stasiun Savana',Math.PI],[-42.2,-24,'Stasiun Danau',-Math.PI/2]].forEach(([x,z,lab,ry])=>{
+[[17,96.8,'Stasiun Gerbang',Math.PI],[130.7,-63,'Stasiun Savana',-Math.PI/2],[-130.7,-24,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA KELILING', lab, 3.8), x, z, ry);
 });
 
@@ -597,8 +598,8 @@ function placeSign(s, x, z, ry = 0){
 const POST_A = [], POST_B = [];
 {
   const post = (x,z)=> POST_A.push([x,z]);
-  for(let x=-128; x<=128; x+=4){ post(x,-94); post(x,94); }
-  for(let z=-90; z<=90; z+=4){ post(-128,z); post(128,z); }
+  for(let x=-136; x<=136; x+=4){ post(x,-104); post(x,104); }
+  for(let z=-100; z<=100; z+=4){ post(-137,z); post(137,z); }
   const rail = (w,x,z,rot)=>{
     for(const y of [1.35, .6]){
       const g = new THREE.BoxGeometry(w,.14,.1);
@@ -607,17 +608,17 @@ const POST_A = [], POST_B = [];
       RAIL_GEOS.push(g);
     }
   };
-  rail(256,0,-94,0); rail(256,0,94,0);
-  rail(188,-128,0,Math.PI/2); rail(188,128,0,Math.PI/2);
-  collideBox(0,-94.5,260,1); collideBox(0,94.5,260,1);
-  collideBox(-128.5,0,1,192); collideBox(128.5,0,1,192);
+  rail(274,0,-104,0); rail(274,0,104,0);
+  rail(208,-137,0,Math.PI/2); rail(208,137,0,Math.PI/2);
+  collideBox(0,-104.5,280,1); collideBox(0,104.5,280,1);
+  collideBox(-137.5,0,1,212); collideBox(137.5,0,1,212);
 }
 
 /* Gerbang utama, sejajar plaza (x 0) */
 {
   const g = new THREE.Group();
-  cyl(.55,.65,7.5,MAT.trunk,-6,3.75,93,g); cyl(.55,.65,7.5,MAT.trunk,6,3.75,93,g);
-  box(15,1.1,1.6,MAT.woodD,0,7.1,93,g);
+  cyl(.55,.65,7.5,MAT.trunk,-6,3.75,106,g); cyl(.55,.65,7.5,MAT.trunk,6,3.75,106,g);
+  box(15,1.1,1.6,MAT.woodD,0,7.1,106,g);
   const signC = document.createElement('canvas'); signC.width = 1024; signC.height = 160;
   const c = signC.getContext('2d');
   c.fillStyle = '#6f5133'; c.fillRect(0,0,1024,160);
@@ -626,7 +627,7 @@ const POST_A = [], POST_B = [];
   c.fillText('KEBUN BINATANG KOMEN', 512, 84);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(13.4,2.1),
     new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(signC) }));
-  sign.position.set(0,7.1,93.85); g.add(sign);
+  sign.position.set(0,7.1,106.85); g.add(sign);
   scene.add(g);
 }
 
@@ -776,12 +777,12 @@ PLOTS.forEach(p=>{
     if(rot) c.rotateY(rot);
     c.translate(x, 4.42, z); ROOF_GEOS.push(c);
   };
-  seg(264, 0, -97, 0);
-  seg(195, -131, 0, Math.PI/2);
-  seg(195, 131, 0, Math.PI/2);
-  seg(124, -69, 97, 0);
-  seg(124, 69, 97, 0);
-  for(const [x, z] of [[-131,-97],[131,-97],[-131,97],[131,97]])
+  seg(286, 0, -107, 0);
+  seg(220, -140, 0, Math.PI/2);
+  seg(220, 140, 0, Math.PI/2);
+  seg(133, -73.5, 107, 0);
+  seg(133, 73.5, 107, 0);
+  for(const [x, z] of [[-140,-107],[140,-107],[-140,107],[140,107]])
     cyl(1, 1.25, 5.6, MAT.rock, x, 2.8, z, scene, 10);
 }
 
@@ -1323,7 +1324,7 @@ function drawMap(){
   const c = mapCv.getContext('2d');
   const W = mapCv.width, H = mapCv.height;
   c.fillStyle = '#7cab58'; c.fillRect(0, 0, W, H);
-  const S = Math.min(W / 285, H / 225);
+  const S = Math.min(W / 300, H / 235);
   const X = wx => W/2 + wx * S, Y = wz => H/2 + wz * S;
   c.fillStyle = '#5ea8c9';
   c.beginPath(); c.arc(X(-102), Y(-24), 11 * S, 0, 7); c.fill();
@@ -1357,15 +1358,18 @@ function drawMap(){
   }
   /* Jalur kereta keliling + stasiunnya */
   c.strokeStyle = 'rgba(90,74,52,.75)'; c.lineWidth = 2; c.setLineDash([6, 4]);
-  c.strokeRect(X(-45.5), Y(-45.5), 84.5 * S, 91 * S);
+  c.strokeRect(X(-134), Y(-101), 268 * S, 202 * S);
   c.setLineDash([]);
   c.font = '700 8.5px Outfit, sans-serif'; c.textAlign = 'center';
-  for(const st of [[17, 45.5, 'Stasiun Gerbang'], [24, -45.5, 'Stasiun Savana'], [-45.5, -24, 'Stasiun Danau']]){
+  for(const st of [[17, 101, 'Stasiun Gerbang'], [134, -63, 'Stasiun Savana'], [-134, -24, 'Stasiun Danau']]){
     c.fillStyle = '#8a5a2b';
     c.beginPath(); c.arc(X(st[0]), Y(st[1]), 4, 0, 7); c.fill();
     c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
     c.fillStyle = 'rgba(46,42,36,.8)';
-    c.fillText(st[2], X(st[0]), Y(st[1]) - 8);
+    if(st[0] < -100){ c.textAlign = 'left'; c.fillText(st[2], X(st[0]) + 8, Y(st[1]) - 8); }
+    else if(st[0] > 100){ c.textAlign = 'right'; c.fillText(st[2], X(st[0]) - 8, Y(st[1]) - 8); }
+    else c.fillText(st[2], X(st[0]), Y(st[1]) - 8);
+    c.textAlign = 'center';
   }
   /* Penanda panggung edukasi */
   c.font = '800 9px Outfit, sans-serif';
@@ -1375,9 +1379,9 @@ function drawMap(){
   c.fillStyle = '#2E2A24'; c.textAlign = 'center';
   c.fillText('PANGGUNG', X(-16), Y(14) + 2);
   c.strokeStyle = '#f3ead8'; c.lineWidth = 5;
-  c.strokeRect(X(-131), Y(-97), 262 * S, 194 * S);
+  c.strokeRect(X(-140), Y(-107), 280 * S, 214 * S);
   c.fillStyle = '#2E2A24'; c.font = '800 11px Outfit, sans-serif'; c.textAlign = 'center';
-  c.fillText('GERBANG', X(0), Y(97) - 7);
+  c.fillText('GERBANG', X(0), Y(107) - 7);
   const px = X(visitor.position.x), py = Y(visitor.position.z);
   c.beginPath();
   c.moveTo(px, py);
@@ -1388,7 +1392,7 @@ function drawMap(){
   c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.stroke();
   /* Legenda posisi pemain + panah utara */
   c.font = '700 9.5px Outfit, sans-serif'; c.textAlign = 'left';
-  const lgx = X(-128), lgy = Y(97) - 10;
+  const lgx = X(-136), lgy = Y(107) - 10;
   c.fillStyle = 'rgba(253,252,248,.88)';
   c.fillRect(lgx - 5, lgy - 10, 108, 14);
   c.fillStyle = '#6F66A3';
