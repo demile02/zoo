@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1312';
+const BUILD = '20261105-1533';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -407,18 +407,29 @@ flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
 
 /* Landasan rel dibangun makeTrack sebagai pita mengikuti kurva jalurnya. */
 
-/* Kereta: dua rel, tiga kereta. Relnya SEGMEN LURUS antar titik jalur
-   dengan busur pendek di tikungan (bukan kurva melengkung seperti tali).
-   Rel Keliling = persegi lingkar luar, dua kereta (hijau dan merah)
-   berbagi rel: berhenti di stasiun berlaku untuk keduanya sekaligus
-   (sistem blok) supaya jarak antar kereta tidak pernah berubah.
-   Kereta Wisata = satu tur besar BERKELOK MENGELILINGI BLOK: dari Zona
-   Air/Primata naik sisi timur Blok D-A, memotong utara Blok D, turun
-   lingkar barat dan ring selatan, naik sisi timur, melintasi Edukasi,
-   mengitari Blok Nusantara (selatan + timur), belok di celah antara
-   Blok Savana-Karnivora dan Blok Pegunungan-Nusantara, memutari utara
-   Blok Savana-Karnivora, lalu pulang menyusuri sisi barat Blok
-   Karnivora dan Nusantara. Satu kereta oranye.
+/* Kereta: DUA rel, masing-masing satu kereta, dan keduanya BERKELOK
+   MENGELILINGI BLOK (bukan lingkar peta). Rel dibangun dari SEGMEN
+   LURUS antar titik jalur dengan busur pendek di tikungan (bukan kurva
+   melengkung seperti tali).
+   Kereta Wisata = tur besar sisi barat + tengah: dari Zona Air/Primata
+   naik sisi timur Blok D-A, memotong utara Blok D, turun lingkar barat
+   dan ring selatan, naik sisi timur, melintasi Edukasi, mengitari Blok
+   Nusantara (selatan + timur), belok di celah antara Blok
+   Savana-Karnivora dan Blok Pegunungan-Nusantara, memutari utara Blok
+   Savana-Karnivora, lalu pulang menyusuri sisi barat Blok Karnivora
+   dan Nusantara. Kereta oranye.
+   Kereta Safari = tur besar kedua (958 unit, banding Wisata 1.319):
+   naik tulang barat di depan Primata dan Zona Air, memotong lingkar
+   utara, turun celah Blok Savana, menembus Blok Pegunungan,
+   menyusuri selatan Blok Nusantara dan Zona Air, memutari danau,
+   turun tepi barat, lalu menembus Plaza dan area Servis. Kereta
+   merah bata. Kedua rel bersilangan tegak lurus di beberapa titik
+   persilangan (tak terhindarkan di koridor yang ada) dan tidak
+   pernah berbagi segmen. Versi pertama Safari (tur timur saja,
+   362 unit) diganti di hari yang sama karena tidak imbang.
+   Rel lingkar luar persegi (Rel Keliling) dihapus atas keputusan
+   Demile 5 Nov 2026: dobel dan hanya memutari peta; rel kedua diganti
+   Kereta Safari yang sama-sama mengelilingi kandang.
    Semua kereta tercatat di window.ZOO_TRAINS (posisi + status berhenti)
    sebagai fondasi fitur naik kereta untuk pengunjung. */
 function makeTrack(waypoints, R = 7){
@@ -546,28 +557,54 @@ function makeTrain(track, stops, opt){
     m.visible = false; scene.add(m);
     PUFFS.push({ m, age: 1e9 });
   }
-  const T = { track, cars, loco, s: opt.phase || 0,
+  /* Angka hitung mundur keberangkatan: sprite bertekstur canvas yang
+     melayang di atas gerbong tengah, hanya tampil saat kereta berhenti
+     di stasiun. Tekstur digambar ulang hanya saat angka detiknya
+     berubah (lihat gambarPapanHitung + TRAINS.update). */
+  const bCv = document.createElement('canvas'); bCv.width = 256; bCv.height = 160;
+  const bTex = new THREE.CanvasTexture(bCv);
+  const bSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: bTex }));
+  bSpr.scale.set(6.4, 4, 1); bSpr.visible = false; scene.add(bSpr);
+  const T = { track, cars, loco, s: opt.phase || 0, nama: opt.nama || '',
               stopsAt: stops.map(([sx, sz])=> track.stopNear(sx, sz)),
               doneStops: new Set(), smokeTimer: 0, PUFFS,
+              au: { rumbleGain: null, nextKlik: 0 },
+              board: { cv: bCv, tex: bTex, spr: bSpr, last: -1 },
               pos(){ return track.at(T.s); },
               berhenti(){ return track.dwell > 0; } };
   return T;
 }
-const JALUR_LUAR = [[134, 101], [134, -101], [-134, -101], [-134, 101]];
+function gambarPapanHitung(T, n){
+  /* Cuma angka (keputusan Demile 5 Nov: tanpa papan, tanpa label):
+     digit krem bergaris tepi gelap supaya terbaca di atas langit,
+     pepohonan, dan atap sekaligus; latar kanvas transparan. */
+  const c = T.board.cv.getContext('2d');
+  c.clearRect(0, 0, 256, 160);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.font = '800 118px Outfit, sans-serif';
+  c.lineWidth = 14; c.lineJoin = 'round';
+  c.strokeStyle = '#2E2A24';
+  c.strokeText(String(n), 128, 84);
+  c.fillStyle = '#f3ead8';
+  c.fillText(String(n), 128, 84);
+  T.board.tex.needsUpdate = true;
+}
 const JALUR_WISATA = [
   [-43, 53.5], [-47, 53.5], [-47, -52], [-128, -52], [-128, 95], [127, 95],
   [127, 48], [-3, 48], [-3, 0], [38, 0], [38, -48], [127, -48],
   [127, -93], [-43, -93], [-43, -48],
 ];
-const TRACK_LUAR = makeTrack(JALUR_LUAR, 9);
+const JALUR_SAFARI = [
+  [-45, 90], [-45, -99], [81, -99], [81, -50.6], [87, -50.6], [87, -2.8],
+  [-87.5, -2.8], [-87.5, -48], [-133, -48], [-133, 71], [-4, 71], [-4, 90],
+];
 const TRACK_WISATA = makeTrack(JALUR_WISATA, 7);
+const TRACK_SAFARI = makeTrack(JALUR_SAFARI, 7);
 const ALL_TRAINS = [
-  makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
-    { loco:0x4E7A3A, wagons:[0xE8A15C, 0x8d81c4], phase: 0 }),
-  makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
-    { loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: TRACK_LUAR.total / 2 }),
   makeTrain(TRACK_WISATA, [[-47, 10], [-128, -24], [-43, -70], [110, -48], [10, 48]],
-    { loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: 60 }),
+    { nama:'wisata', loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: 60 }),
+  makeTrain(TRACK_SAFARI, [[-16, -99], [81, -72], [87, -24], [-87.5, -24], [-45, 24], [-20, 71]],
+    { nama:'safari', loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: 95 }),
 ];
 window.ZOO_TRAINS = ALL_TRAINS;
 /* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun bergantian */
@@ -605,7 +642,21 @@ function updatePemainKereta(dt){
     const T = naik.T, car = T.cars[1];
     const p = T.track.at(T.s - 5.6);
     visitor.position.set(car.position.x, 1.45, car.position.z);
-    heading = p.ang;
+    if(naik.initLook){
+      /* Bawaan saat baru naik: penumpang menghadap SAMPING KIRI
+         rangkaian (tegak lurus arah laju), bukan ke arah kepala kereta.
+         Berlaku sekali saja; sesudah itu arah pandang dipegang seretan
+         pemain, dan belokan kereta hanya menggeser heading ikut rel
+         (cabang else di bawah), tidak pernah memaksa kembali. */
+      heading = p.ang + Math.PI / 2;
+      naik.initLook = false;
+    } else {
+      let da = p.ang - naik.prevAng;
+      while(da > Math.PI) da -= Math.PI * 2;
+      while(da < -Math.PI) da += Math.PI * 2;
+      heading += da;
+    }
+    naik.prevAng = p.ang;
     visitor.rotation.y = heading;
     const fx = Math.sin(heading), fz = Math.cos(heading);
     const want = new THREE.Vector3(visitor.position.x - fx * camDist, 9.5 * camDist / 13, visitor.position.z - fz * camDist);
@@ -661,21 +712,142 @@ rideBtn.addEventListener('pointerdown', e=>{
     naik = null;
     setRideBtn('');
   } else if(calonNaik){
-    naik = { T: calonNaik };
+    naik = { T: calonNaik, initLook: true, prevAng: 0 };
     setRideBtn('');
   }
 });
 const chimneyTop = new THREE.Vector3();
+/* ===== Suara kereta (sintesis WebAudio, tanpa berkas luar) =====
+   Jalan: deru rendah menerus + ketukan rel berpasangan. Berhenti:
+   desis rem tepat saat masuk masa berhenti. Berangkat: bel dua nada
+   sesaat sebelum masa berhenti habis. Volume mengikuti jarak pemain
+   ke rangkaian terdekat (penumpang yang sedang naik = paling jelas),
+   dan semuanya ikut tombol senyap lewat cek `muted`.
+   ZOO_SFX = penghitung pemicu, untuk verifikasi programatik. */
+const ZOO_SFX = { rem: 0, berangkat: 0, klik: 0, jalan: { wisata: false, safari: false } };
+window.ZOO_SFX = ZOO_SFX;
+function jarakKereta(T){
+  let d = 1e9;
+  for(const c of T.cars){
+    const dd = Math.hypot(visitor.position.x - c.position.x, visitor.position.z - c.position.z);
+    if(dd < d) d = dd;
+  }
+  return d;
+}
+function volKereta(T){
+  if(naik && naik.T === T) return 1;
+  return Math.max(0, 1 - jarakKereta(T) / 75);
+}
+function deruMulai(T){
+  const ac = audioCtx();
+  const len = 2 * ac.sampleRate;
+  const buf = ac.createBuffer(1, len, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for(let i = 0; i < len; i++){ const w = Math.random() * 2 - 1; last = (last + .05 * w) / 1.05; d[i] = last * 3.2; }
+  const src = ac.createBufferSource(); src.buffer = buf; src.loop = true;
+  const flt = ac.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 160;
+  const g = ac.createGain(); g.gain.value = 0;
+  src.connect(flt); flt.connect(g); g.connect(ac.destination); src.start();
+  T.au.rumbleGain = g;
+}
+function klikRel(T, t, vol){
+  const ac = audioCtx();
+  for(const dt of [0, .13]){
+    const o = ac.createOscillator(), g = ac.createGain(), f = ac.createBiquadFilter();
+    o.type = 'square'; o.frequency.value = 190;
+    f.type = 'bandpass'; f.frequency.value = 750; f.Q.value = 2.5;
+    const s = t + dt;
+    g.gain.setValueAtTime(0, s);
+    g.gain.linearRampToValueAtTime(.20 * vol, s + .008);
+    g.gain.exponentialRampToValueAtTime(.001, s + .07);
+    o.connect(f); f.connect(g); g.connect(ac.destination);
+    o.start(s); o.stop(s + .09);
+  }
+  ZOO_SFX.klik++;
+}
+function sfxRem(T){
+  ZOO_SFX.rem++;
+  if(muted) return;
+  const vol = volKereta(T);
+  if(vol <= .02) return;
+  try{
+    const ac = audioCtx(), t = ac.currentTime;
+    const len = Math.floor(ac.sampleRate * .8);
+    const buf = ac.createBuffer(1, len, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.1;
+    f.frequency.setValueAtTime(2600, t);
+    f.frequency.exponentialRampToValueAtTime(420, t + .75);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(.30 * vol, t + .06);
+    g.gain.exponentialRampToValueAtTime(.001, t + .8);
+    src.connect(f); f.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t + .85);
+  }catch(_){}
+}
+function sfxBerangkat(T){
+  ZOO_SFX.berangkat++;
+  if(muted) return;
+  const vol = volKereta(T);
+  if(vol <= .02) return;
+  try{
+    const ac = audioCtx(), t0 = ac.currentTime;
+    [[988, 0], [784, .22]].forEach(([fr, dt])=>{
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = fr;
+      const t = t0 + dt;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(.22 * vol, t + .015);
+      g.gain.exponentialRampToValueAtTime(.001, t + .34);
+      o.connect(g); g.connect(ac.destination);
+      o.start(t); o.stop(t + .36);
+    });
+  }catch(_){}
+}
+function updateSuaraKereta(T){
+  const jalan = T.track.dwell <= 0;
+  if(T.nama) ZOO_SFX.jalan[T.nama] = jalan;
+  if(!AC) return;
+  try{
+    if(jalan && !muted){
+      if(!T.au.rumbleGain) deruMulai(T);
+      const ac = audioCtx(), now = ac.currentTime;
+      const vol = volKereta(T);
+      T.au.rumbleGain.gain.setTargetAtTime(.16 * vol, now, .1);
+      if(T.au.nextKlik < now) T.au.nextKlik = now + .05;
+      while(T.au.nextKlik < now + .25){
+        if(vol > .03) klikRel(T, T.au.nextKlik, vol);
+        T.au.nextKlik += .46;
+      }
+    } else if(T.au.rumbleGain){
+      T.au.rumbleGain.gain.setTargetAtTime(0, audioCtx().currentTime, .08);
+      T.au.nextKlik = 0;
+    }
+  }catch(_){}
+}
 const TRAINS = {
   update(dt){
-    for(const tr of [TRACK_LUAR, TRACK_WISATA]) if(tr.dwell > 0) tr.dwell -= dt;
+    for(const tr of [TRACK_WISATA, TRACK_SAFARI]) if(tr.dwell > 0) tr.dwell -= dt;
     for(const T of ALL_TRAINS){
       const track = T.track;
+      if(track.dwell > 0 && track.dwell <= 1.2 && !track.sinyal){
+        /* Isyarat berangkat: sekali saja, sesaat sebelum berhenti berakhir */
+        track.sinyal = true;
+        sfxBerangkat(T);
+      }
       if(track.dwell <= 0){
         T.s += dt * 8.5;
         for(const st of T.stopsAt){
           const d = Math.abs(((T.s - st) % track.total + track.total) % track.total);
-          if(d < .4 && !T.doneStops.has(st)){ track.dwell = LAMA_BERHENTI; T.doneStops.add(st); }
+          if(d < .4 && !T.doneStops.has(st)){
+            track.dwell = LAMA_BERHENTI; T.doneStops.add(st);
+            track.sinyal = false;
+            sfxRem(T);
+          }
           if(d > 6) T.doneStops.delete(st);
         }
       }
@@ -706,6 +878,16 @@ const TRAINS = {
         p.m.scale.set(sc, sc, sc);
         p.m.material.opacity = .55 * (1 - f);
       }
+      /* Papan hitung mundur di atas gerbong tengah: tampil hanya saat
+         kereta berhenti di stasiun; angka = Math.ceil sisa dwell asli,
+         digambar ulang hanya saat detiknya berganti. */
+      const sisa = track.dwell > 0 ? Math.ceil(track.dwell) : 0;
+      T.board.spr.visible = sisa > 0;
+      if(sisa > 0){
+        if(sisa !== T.board.last){ gambarPapanHitung(T, sisa); T.board.last = sisa; }
+        T.board.spr.position.set(T.cars[1].position.x, 5.8, T.cars[1].position.z);
+      }
+      updateSuaraKereta(T);
     }
   }
 };
@@ -752,8 +934,8 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-[[17,96.8,'Stasiun Gerbang',Math.PI],[130.7,-63,'Stasiun Savana',-Math.PI/2],[-130.7,-24,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
-  placeSign(signBoard('KERETA KELILING', lab, 3.8), x, z, ry);
+[[-16,-101.7,'Stasiun Karnivora',0],[84.3,-72,'Stasiun Savana',-Math.PI/2],[90.5,-24,'Stasiun Pegunungan',-Math.PI/2],[-90.8,-31,'Stasiun Zona Air',Math.PI/2],[-48.3,24,'Stasiun Primata',Math.PI/2],[-20,74.3,'Stasiun Plaza',Math.PI]].forEach(([x,z,lab,ry])=>{
+  placeSign(signBoard('KERETA SAFARI', lab, 3.8), x, z, ry);
 });
 [[-50.5,10,'Stasiun Primata',Math.PI/2],[-124.5,-24,'Stasiun Danau',-Math.PI/2],[-39.7,-70,'Stasiun Karnivora',-Math.PI/2],[110,-44.7,'Stasiun Savana',0],[10,44.7,'Stasiun Edukasi',Math.PI]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA WISATA', lab, 3.8), x, z, ry);
@@ -1539,23 +1721,20 @@ function drawMap(){
     c.fillStyle = '#2E2A24';
     c.fillText(txt, lx, ly);
   }
-  /* Jalur kereta keliling + stasiunnya (garis mengikuti titik sampel rel) */
-  c.strokeStyle = 'rgba(90,74,52,.75)'; c.lineWidth = 2; c.setLineDash([6, 4]);
+  /* Jalur kereta safari (tur besar kedua mengelilingi kandang) + stasiunnya */
+  c.strokeStyle = 'rgba(90,74,52,.55)'; c.lineWidth = 1.5; c.setLineDash([8, 3]);
   c.beginPath();
-  TRACK_LUAR.pts.forEach((p, i)=>{ const px = X(p[0]), py = Y(p[1]); if(i === 0) c.moveTo(px, py); else c.lineTo(px, py); });
+  TRACK_SAFARI.pts.forEach((p, i)=>{ const px = X(p[0]), py = Y(p[1]); if(i === 0) c.moveTo(px, py); else c.lineTo(px, py); });
   c.closePath(); c.stroke();
   c.setLineDash([]);
-  c.font = '700 8.5px Outfit, sans-serif'; c.textAlign = 'center';
-  for(const st of [[17, 101, 'Stasiun Gerbang'], [134, -63, 'Stasiun Savana'], [-134, -24, 'Stasiun Danau']]){
-    const sp = TRACK_LUAR.stopPoint(st[0], st[1]);
-    c.fillStyle = '#8a5a2b';
-    c.beginPath(); c.arc(X(sp.x), Y(sp.z), 4, 0, 7); c.fill();
-    c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
+  c.font = '700 8px Outfit, sans-serif'; c.textAlign = 'center';
+  for(const st of [[-16, -99, 'St. Karnivora', 13], [81, -72, 'St. Savana', -7], [87, -24, 'St. Pegunungan', -7], [-87.5, -24, 'St. Zona Air', 13], [-45, 24, 'St. Primata', -7], [-20, 71, 'St. Plaza', -7]]){
+    const sp = TRACK_SAFARI.stopPoint(st[0], st[1]);
+    c.fillStyle = '#2E6E8E';
+    c.beginPath(); c.arc(X(sp.x), Y(sp.z), 3, 0, 7); c.fill();
+    c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke();
     c.fillStyle = 'rgba(46,42,36,.8)';
-    if(st[0] < -100){ c.textAlign = 'left'; c.fillText(st[2], X(sp.x) + 8, Y(sp.z) - 8); }
-    else if(st[0] > 100){ c.textAlign = 'right'; c.fillText(st[2], X(sp.x) - 8, Y(sp.z) - 8); }
-    else c.fillText(st[2], X(sp.x), Y(sp.z) - 8);
-    c.textAlign = 'center';
+    c.fillText(st[2], X(sp.x), Y(sp.z) + st[3]);
   }
   /* Jalur kereta wisata (tur mengelilingi blok) + stasiunnya */
   c.strokeStyle = 'rgba(90,74,52,.6)'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
