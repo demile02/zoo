@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1842';
+const BUILD = '20261105-1902';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -388,7 +388,7 @@ function collideBox(cx,cz,w,d,low){
 }
 /* Geometri statis dikumpulkan per material lalu digabung jadi satu mesh
    per kelompok: ratusan benda statis turun jadi segelintir draw call. */
-const WOOD_GEOS = [], RAIL_GEOS = [], WALL_GEOS = [], ROOF_GEOS = [], TRUNK_GEOS = [], LEAF_GEOS = [], LEAF2_GEOS = [], ROCK_GEOS = [];
+const WOOD_GEOS = [], RAIL_GEOS = [], WALL_GEOS = [], ROOF_GEOS = [], TRUNK_GEOS = [], LEAF_GEOS = [], LEAF2_GEOS = [], ROCK_GEOS = [], EMAS_GEOS = [], LAMPU_GEOS = [];
 const ground = new THREE.Mesh(new THREE.PlaneGeometry(340,250), MAT.grass);
 ground.rotation.x = -Math.PI/2; ground.receiveShadow = true;
 scene.add(ground);
@@ -434,10 +434,12 @@ flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
    kereta digeser, dan sudut rel dihitung dari tali busur supaya
    kamera penumpang tidak patah saat kereta belok.
    Plang stasiun diganti gapura melintasi rel (perintah Demile
-   5 Nov sore): dua tiang + balok bernama di titik berhenti,
-   kereta lewat di bawahnya; tiang digeser keluar sampai bebas
-   dari semua rel, jadi gapura koridor barat membentang lebar
-   menaungi tiga rel sekaligus.
+   5 Nov sore), lalu dibuat MEWAH di malam yang sama (versi kayu
+   ditolak: "cuma plang ganti ukuran"): pilar batu krem berlapis
+   dengan sabuk emas, plakat nama berhuruf emas, mahkota atap
+   bertingkat bermustika emas, dan lampion gantung; tiang digeser
+   keluar sampai bebas dari semua rel, jadi gapura koridor barat
+   membentang lebar menaungi tiga rel sekaligus.
    Rel lingkar luar persegi (Rel Keliling) dihapus atas keputusan
    Demile 5 Nov 2026: dobel dan hanya memutari peta; rel kedua diganti
    Kereta Safari yang sama-sama mengelilingi kandang.
@@ -953,13 +955,39 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-/* Gapura stasiun: dua tiang + balok bernama melintang TEPAT di atas
-   rel di titik berhenti, kereta lewat di bawahnya. Jarak tiang mulai
-   2,6 dari sumbu rel dan digeser keluar selangkah demi selangkah
-   sampai bebas dari SEMUA rel (koridor barat bertiga dan celah
-   Savana membuat beberapa gapura membentang lebih lebar, menaungi
-   rel tetangga sekalian). Bawah balok 4,5 — di atas atap lokomotif
-   (3,77) dan cerobongnya. Papan nama di kedua muka balok. */
+/* Plakat nama gapura: batu gelap berbingkai emas, huruf emas —
+   bukan papan kayu cat seperti plang lama. */
+function gatePlaque(top, lab){
+  const cv = document.createElement('canvas');
+  cv.width = 1024; cv.height = 192;
+  const c = cv.getContext('2d');
+  const gr = c.createLinearGradient(0, 0, 0, 192);
+  gr.addColorStop(0, '#3a2f26'); gr.addColorStop(1, '#241c15');
+  c.fillStyle = gr; c.fillRect(0, 0, 1024, 192);
+  c.strokeStyle = '#d9a441'; c.lineWidth = 6; c.strokeRect(12, 12, 1000, 168);
+  c.lineWidth = 2; c.strokeRect(26, 26, 972, 140);
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  const fit = (txt, size)=>{
+    do { c.font = `800 ${size}px Outfit, sans-serif`; size -= 2; }
+    while(c.measureText(txt).width > 900 && size > 18);
+  };
+  const renggang = top.split('').join('  ');
+  fit(renggang, 42);
+  c.fillStyle = '#d9a441'; c.fillText(renggang, 512, 58);
+  fit(lab, 84);
+  c.fillStyle = '#eec96f'; c.fillText(lab, 512, 128);
+  return new THREE.CanvasTexture(cv);
+}
+
+/* Gapura stasiun MEWAH (koreksi Demile 5 Nov: versi kayu "cuma plang
+   ganti ukuran"): pilar batu krem berlapis — alas batu, badan, sabuk
+   emas, kepala batu — ditutup arkitraf, plakat nama berhuruf emas,
+   mahkota atap bertingkat dengan mustika emas, dan dua lampion
+   gantung. Berdiri tepat di titik berhenti, rel lewat di bawahnya;
+   pilar mulai 2,6 dari sumbu rel dan digeser keluar sampai bebas
+   dari SEMUA rel (koridor barat dan celah Savana membuat beberapa
+   gapura membentang lebar menaungi rel tetangga). Bawah arkitraf
+   5,67 — jauh di atas atap lokomotif (3,77). */
 function stationGate(track, sx, sz, top, lab){
   let bi = 0, bd = 1e9;
   track.pts.forEach((p, i)=>{
@@ -982,26 +1010,45 @@ function stationGate(track, sx, sz, top, lab){
     return [C[0] + px * d * sgn, C[1] + pz * d * sgn];
   };
   const P1 = sisi(-1), P2 = sisi(1);
+  const fx = Math.sin(ang), fz = Math.cos(ang);
+  const kotak = (list, w, h, d, x, y, z)=>{
+    const g = new THREE.BoxGeometry(w, h, d);
+    g.rotateY(ang); g.translate(x, y, z);
+    list.push(g);
+  };
   for(const [gx, gz] of [P1, P2]){
-    const g = new THREE.BoxGeometry(.42, 5.9, .42);
-    g.translate(gx, 2.95, gz); WOOD_GEOS.push(g);
-    const cap = new THREE.BoxGeometry(.66, .18, .66);
-    cap.translate(gx, 6, gz); ROOF_GEOS.push(cap);
-    collideBox(gx, gz, .7, .7);
+    kotak(ROCK_GEOS, 1.2, .7, 1.2, gx, .35, gz);
+    kotak(ROCK_GEOS, .95, .35, .95, gx, .87, gz);
+    kotak(WALL_GEOS, .8, 4.3, .8, gx, 3.2, gz);
+    kotak(EMAS_GEOS, .88, .2, .88, gx, 4.9, gz);
+    kotak(ROCK_GEOS, 1.15, .32, 1.15, gx, 5.5, gz);
+    collideBox(gx, gz, 1.25, 1.25);
   }
   const mx = (P1[0] + P2[0]) / 2, mz = (P1[1] + P2[1]) / 2;
-  const len = Math.hypot(P2[0] - P1[0], P2[1] - P1[1]) + .9;
-  const beam = new THREE.BoxGeometry(len, 1.3, .34);
-  beam.rotateY(ang); beam.translate(mx, 5.15, mz);
-  WOOD_GEOS.push(beam);
-  const sb = signBoard(top, lab, 4.4, 1.3);
-  const fx = Math.sin(ang), fz = Math.cos(ang);
+  const span = Math.hypot(P2[0] - P1[0], P2[1] - P1[1]);
+  kotak(WALL_GEOS, span + 1.5, .55, 1.05, mx, 5.95, mz);
+  kotak(EMAS_GEOS, span + 1.5, .12, 1, mx, 6.28, mz);
+  kotak(WOOD_GEOS, span + 1.3, 1.05, .8, mx, 6.87, mz);
+  kotak(ROOF_GEOS, span + 1.9, .3, 1.3, mx, 7.55, mz);
+  kotak(ROOF_GEOS, 3.2, .34, 1, C[0], 7.87, C[1]);
+  kotak(ROOF_GEOS, 2.3, .32, .85, C[0], 8.2, C[1]);
+  kotak(ROOF_GEOS, 1.4, .3, .7, C[0], 8.5, C[1]);
+  const mustika = new THREE.SphereGeometry(.26, 10, 8);
+  mustika.translate(C[0], 8.95, C[1]); EMAS_GEOS.push(mustika);
+  const tex = gatePlaque(top, lab);
   for(const sgn of [1, -1]){
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(4.28, 1.18),
-      new THREE.MeshBasicMaterial({ map: sb.tex }));
-    face.position.set(C[0] + fx * .19 * sgn, 5.15, C[1] + fz * .19 * sgn);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(5.4, .92),
+      new THREE.MeshBasicMaterial({ map: tex }));
+    face.position.set(C[0] + fx * .42 * sgn, 6.87, C[1] + fz * .42 * sgn);
     face.rotation.y = sgn > 0 ? ang : ang + Math.PI;
     scene.add(face);
+  }
+  const lo = Math.min(2.9, span / 2 - .7);
+  for(const sgn of [-1, 1]){
+    const lx = C[0] + px * lo * sgn, lz = C[1] + pz * lo * sgn;
+    kotak(EMAS_GEOS, .05, .5, .05, lx, 5.45, lz);
+    kotak(ROOF_GEOS, .42, .1, .42, lx, 5.22, lz);
+    kotak(LAMPU_GEOS, .3, .38, .3, lx, 4.98, lz);
   }
 }
 [[-16,-99,'Stasiun Karnivora'],[80.5,-72,'Stasiun Savana'],[87,-24,'Stasiun Pegunungan'],[-87.5,-24,'Stasiun Zona Air'],[-44,24,'Stasiun Primata'],[-20,71,'Stasiun Plaza']].forEach(([x,z,lab])=>{
@@ -2191,6 +2238,8 @@ mergeInto(TRUNK_GEOS, MAT.trunk);
 mergeInto(LEAF_GEOS, MAT.leaf);
 mergeInto(LEAF2_GEOS, MAT.leaf2);
 mergeInto(ROCK_GEOS, MAT.rock);
+mergeInto(EMAS_GEOS, new THREE.MeshLambertMaterial({ color:0xd9a441 }));
+mergeInto(LAMPU_GEOS, new THREE.MeshBasicMaterial({ color:0xffe9b0 }));
 
 const clock = new THREE.Clock();
 const camPos = new THREE.Vector3(0, 16, 103);
