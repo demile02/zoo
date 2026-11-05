@@ -294,7 +294,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1943';
+const BUILD = '20261105-2001';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1391,25 +1391,65 @@ function hiasWC(b){
   cyl(.85, .85, 1.3, MAT.water, b.cx + b.w/2 - 1.2, 5.85, b.cz - b.d/2 + 1.2, scene, 12);
   cyl(.07, .07, 1.1, MAT.rail, b.cx - b.w/2 + 1, 5.65, b.cz, scene, 6);
 }
-/* KDMP (Koperasi Desa Merah Putih) — dibangun atas perintah Demile
-   5 Nov malam di lahan kosong Plaza Masuk, timur Papan Direktur:
-   sabuk merah di mahkota dinding putih, etalase kaca, kanopi belang
-   merah-putih, pintu merah, tiang bendera merah putih, peti sembako. */
+/* Logo KOPDES untuk dinding ujung KDMP, digambar di kanvas meniru
+   logo aslinya: garis rumah merah + KOP DES + MERAH PUTIH, lalu
+   tulisan KOPERASI (gelap) dan MERAH PUTIH (merah + putih). */
+function kdmpLogo(){
+  const cv = document.createElement('canvas');
+  cv.width = 640; cv.height = 400;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#e8edf2'; c.fillRect(0, 0, 640, 400);
+  c.strokeStyle = '#d42a22'; c.lineWidth = 15; c.lineJoin = 'round';
+  c.beginPath();
+  c.moveTo(88, 168); c.lineTo(178, 84); c.lineTo(268, 168);
+  c.moveTo(112, 150); c.lineTo(112, 252); c.lineTo(244, 252); c.lineTo(244, 150);
+  c.stroke();
+  c.fillStyle = '#d42a22'; c.fillRect(174, 34, 5, 52); c.fillRect(179, 34, 34, 24);
+  c.fillRect(160, 196, 36, 56);
+  c.textBaseline = 'middle';
+  c.fillStyle = '#d42a22'; c.font = '800 74px Outfit, sans-serif';
+  c.fillText('KOP', 292, 128);
+  c.fillText('DES', 292, 202);
+  c.font = '800 30px Outfit, sans-serif'; c.fillStyle = '#2b2b2b';
+  c.fillText('MERAH PUTIH', 88, 282);
+  c.textAlign = 'center';
+  c.font = '800 56px Outfit, sans-serif'; c.fillStyle = '#2b2b2b';
+  c.fillText('KOPERASI', 320, 330);
+  c.font = '800 62px Outfit, sans-serif';
+  const wM = c.measureText('MERAH ').width, wP = c.measureText('PUTIH').width;
+  const x0 = 320 - (wM + wP) / 2;
+  c.textAlign = 'left'; c.fillStyle = '#d42a22';
+  c.fillText('MERAH ', x0, 378);
+  c.strokeStyle = 'rgba(43,43,43,.45)'; c.lineWidth = 1.5;
+  c.strokeText('PUTIH', x0 + wM, 378);
+  c.fillStyle = '#fdfcf8'; c.fillText('PUTIH', x0 + wM, 378);
+  return new THREE.CanvasTexture(cv);
+}
+/* KDMP (Koperasi Desa Merah Putih) di lahan kosong Plaza Masuk —
+   dibangun ulang persis desain gerai aslinya (riset foto 5 Nov
+   malam, koreksi Demile "itu mah bukan KDMP orang liat"): dinding
+   putih panjang, deretan PINTU LIPAT MERAH di muka selatan dengan
+   pilaster putih, selasar beratap datar bertiang putih, dan panel
+   logo KOPDES + tulisan KOPERASI MERAH PUTIH di dinding ujung
+   timur. Atap ditutup lempeng abu muda seperti atap logam aslinya. */
 function hiasKDMP(b){
-  box(b.w + .18, .55, b.d + .18, MAT_MERAH, b.cx, 4.28, b.cz);
-  box(7.2, 2.1, .14, MAT_KACA, b.cx - 1.2, 1.55, b.cz + b.d/2 + .03);
-  for(const dx of [-4.4, -1.2, 2]) box(.13, 2.1, .16, MAT.woodD, b.cx + dx, 1.55, b.cz + b.d/2 + .04);
-  for(let i = 0; i < 7; i++)
-    box(1.05, .09, 1.7, i % 2 ? MAT_PUTIH : MAT_MERAH, b.cx - 4.35 + i * 1.07, 3.05, b.cz + b.d/2 + .8).rotation.x = -.16;
-  box(1.3, 2.7, .12, MAT_MERAH, b.cx + 4.4, 1.35, b.cz + b.d/2 + .03);
-  const fx = b.cx + b.w/2 - .6, fz = b.cz + b.d/2 + 2.4;
-  cyl(.05, .05, 5.2, MAT_PUTIH, fx, 2.6, fz, scene, 8);
-  box(1.25, .42, .04, MAT_MERAH, fx + .64, 4.85, fz);
-  box(1.25, .42, .04, MAT_PUTIH, fx + .64, 4.42, fz);
-  collideBox(fx, fz, .4, .4);
-  box(.85, .85, .85, MAT.wood, b.cx - 4.9, .42, b.cz + b.d/2 + 1);
-  box(.7, .7, .7, MAT.wood, b.cx - 4.9, 1.2, b.cz + b.d/2 + 1);
-  collideBox(b.cx - 4.9, b.cz + b.d/2 + 1, .95, .95);
+  box(b.w + .95, .14, b.d + .95, MAT.rock, b.cx, 5.18, b.cz);
+  for(const dx of [-4.5, -1.5, 1.5, 4.5]){
+    box(2.3, 3, .12, MAT_MERAH, b.cx + dx, 1.5, b.cz + b.d/2 + .04);
+    for(const gx of [-.55, 0, .55])
+      box(.05, 2.9, .03, MAT.woodD, b.cx + dx + gx, 1.5, b.cz + b.d/2 + .11);
+    box(.7, .09, .05, MAT.woodD, b.cx + dx, 1.35, b.cz + b.d/2 + .12);
+  }
+  box(b.w + .6, .12, 1.9, MAT_PUTIH, b.cx, 3.28, b.cz + b.d/2 + .95);
+  for(const dx of [-5.5, -2.6, 2.6, 5.5]){
+    cyl(.06, .06, 3.28, MAT_PUTIH, b.cx + dx, 1.64, b.cz + b.d/2 + 1.78, scene, 8);
+    collideBox(b.cx + dx, b.cz + b.d/2 + 1.78, .3, .3);
+  }
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.5),
+    new THREE.MeshBasicMaterial({ map: kdmpLogo() }));
+  panel.position.set(b.cx + b.w/2 + .09, 2.4, b.cz);
+  panel.rotation.y = Math.PI / 2;
+  scene.add(panel);
 }
 function bangunFoodCourt(b){
   const rg = new THREE.BoxGeometry(b.w + 1, .5, b.d + 2.4); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
