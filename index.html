@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1252';
+const BUILD = '20261105-1312';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -633,8 +633,13 @@ function updatePemainKereta(dt){
   calonNaik = null;
   for(const T of ALL_TRAINS){
     if(T.track.dwell > 1.5 && sJarak(T) < 3){
-      const c = T.cars[1];
-      if(Math.hypot(visitor.position.x - c.position.x, visitor.position.z - c.position.z) < 5.5){ calonNaik = T; break; }
+      /* Tombol muncul kalau pemain dekat rangkaian mana pun (lokomotif
+         atau gerbong mana saja), bukan cuma gerbong tengah */
+      let dekat = false;
+      for(const c of T.cars){
+        if(Math.hypot(visitor.position.x - c.position.x, visitor.position.z - c.position.z) < 5){ dekat = true; break; }
+      }
+      if(dekat){ calonNaik = T; break; }
     }
   }
   setRideBtn(calonNaik ? '🚂 Naik Kereta' : '');
