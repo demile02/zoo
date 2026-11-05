@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1052';
+const BUILD = '20261105-1112';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -402,51 +402,24 @@ flatRect(-43, 0, 7, 176, 0xe3cf9e, .02);
 flatRect(43, 0, 7, 176, 0xe3cf9e, .02);
 flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
 
-/* Jalur kereta keliling: lingkar LUAR sesuai denah induk v1.1, di
-   koridor antara jalan sabuk luar dan pagar keliling (x ±134, z ±101).
-   Koridor ini ada karena tembok dan pagar sudah digeser keluar; rel
-   persegi lama x=±114/z=±84 menabrak petak karena dulu tembok terlalu
-   rapat ke blok. Stasiun: Gerbang (selatan), Savana (timur, di B4),
-   Danau (barat, di danau Blok D). */
-flatRect(-134, 0, 1.9, 202, 0x8a8578, .03);
-flatRect(134, 0, 1.9, 202, 0x8a8578, .03);
-flatRect(0, -101, 268, 1.9, 0x8a8578, .03);
-flatRect(0, 101, 268, 1.9, 0x8a8578, .03);
-/* Landasan rel tengah: lingkar jalan sabuk dalam (x -45.5..39, z ±45.5) */
-flatRect(-45.5, 0, 1.9, 91, 0x8a8578, .03);
-flatRect(39, 0, 1.9, 91, 0x8a8578, .03);
-flatRect(-3.25, -45.5, 84.5, 1.9, 0x8a8578, .03);
-flatRect(-3.25, 45.5, 84.5, 1.9, 0x8a8578, .03);
+/* Landasan rel dibangun makeTrack sebagai pita mengikuti kurva jalurnya. */
 
-/* Kereta: dua rel, tiga kereta.
-   Rel Keliling = lingkar luar denah induk, dilayani dua kereta (hijau dan
-   merah) yang berbagi rel: berhenti di stasiun berlaku untuk keduanya
-   sekaligus (sistem blok) supaya jarak antar kereta tidak pernah berubah.
-   Rel Tengah = lingkar jalan sabuk dalam, satu kereta oranye.
+/* Kereta: dua rel, tiga kereta, jalurnya BERKELOK mengikuti titik-titik
+   jalur yang dirangkai spline tertutup (bukan persegi kaku).
+   Rel Keliling = lingkar luar yang bergelombang halus di koridor pagar,
+   dilayani dua kereta (hijau dan merah) berbagi rel: berhenti di stasiun
+   berlaku untuk keduanya sekaligus (sistem blok) supaya jarak antar
+   kereta tidak pernah berubah.
+   Rel Tengah = jalur ANGKA DELAPAN: satu lingkaran mengitari Blok
+   Nusantara, satu mengitari area Edukasi (menyelinap di celah dua
+   bangunan edukasi), bersilang di sudut timur Edukasi; satu kereta oranye.
    Semua kereta tercatat di window.ZOO_TRAINS (posisi + status berhenti)
    sebagai fondasi fitur naik kereta untuk pengunjung. */
-function makeTrack(X0, X1, Z0, Z1, R){
-  const pts = [];
-  const line = (x0, z0, x1, z1)=>{
-    const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 1.2));
-    for(let i = 0; i < n; i++) pts.push([x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n]);
-  };
-  const arc = (cx, cz, a0, a1)=>{
-    const n = 10;
-    for(let i = 0; i < n; i++){
-      const a = a0 + (a1 - a0) * i / n;
-      pts.push([cx + R * Math.sin(a), cz + R * Math.cos(a)]);
-    }
-  };
-  line(0, Z1, X1 - R, Z1);
-  arc(X1 - R, Z1 - R, 0, Math.PI/2);
-  line(X1, Z1 - R, X1, Z0 + R);
-  arc(X1 - R, Z0 + R, Math.PI/2, Math.PI);
-  line(X1 - R, Z0, X0 + R, Z0);
-  arc(X0 + R, Z0 + R, Math.PI, Math.PI * 1.5);
-  line(X0, Z0 + R, X0, Z1 - R);
-  arc(X0 + R, Z1 - R, Math.PI * 1.5, Math.PI * 2);
-  line(X0 + R, Z1, 0, Z1);
+function makeTrack(waypoints){
+  const curve = new THREE.CatmullRomCurve3(
+    waypoints.map(([x, z])=> new THREE.Vector3(x, 0, z)), true, 'centripetal');
+  const n = Math.max(60, Math.round(curve.getLength()));
+  const pts = curve.getSpacedPoints(n).slice(0, -1).map(p=>[p.x, p.z]);
   const cum = [0];
   for(let i = 1; i <= pts.length; i++){
     const a = pts[i - 1], b = pts[i % pts.length];
@@ -463,12 +436,34 @@ function makeTrack(X0, X1, Z0, Z1, R){
     return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f,
              ang: Math.atan2(b[0] - a[0], b[1] - a[1]) };
   }
-  function stopNear(sx, sz){
+  function nearestIdx(sx, sz){
     let best = 0, bd = 1e9;
     pts.forEach((p, i)=>{ const d = Math.hypot(p[0] - sx, p[1] - sz); if(d < bd){ bd = d; best = i; } });
-    return cum[best];
+    return best;
   }
-  return { at, total, stopNear, dwell: 0 };
+  function stopNear(sx, sz){ return cum[nearestIdx(sx, sz)]; }
+  function stopPoint(sx, sz){ const p = pts[nearestIdx(sx, sz)]; return { x: p[0], z: p[1] }; }
+  /* Landasan: pita selebar rel mengikuti kurva, satu geometri per rel */
+  {
+    const pos = [], nor = [], idx = [];
+    for(let i = 0; i < pts.length; i++){
+      const p = pts[i], q = pts[(i + 1) % pts.length], r = pts[(i - 1 + pts.length) % pts.length];
+      let dx = q[0] - r[0], dz = q[1] - r[1];
+      const L = Math.hypot(dx, dz) || 1; dx /= L; dz /= L;
+      pos.push(p[0] - dz * .95, .03, p[1] + dx * .95, p[0] + dz * .95, .03, p[1] - dx * .95);
+      nor.push(0, 1, 0, 0, 1, 0);
+      const va = i * 2, vb = ((i + 1) % pts.length) * 2;
+      idx.push(va, vb, va + 1, vb, vb + 1, va + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setIndex(idx);
+    const bed = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color:0x8a8578, side:THREE.DoubleSide }));
+    bed.receiveShadow = true;
+    scene.add(bed);
+  }
+  return { at, total, stopNear, stopPoint, pts, dwell: 0 };
 }
 const wheelM = new THREE.MeshLambertMaterial({ color:0x333a45 });
 function trainWheels(g, xs){
@@ -520,14 +515,29 @@ function makeTrain(track, stops, opt){
               berhenti(){ return track.dwell > 0; } };
   return T;
 }
-const TRACK_LUAR = makeTrack(-134, 134, -101, 101, 9);
-const TRACK_TENGAH = makeTrack(-45.5, 39, -45.5, 45.5, 7);
+const JALUR_LUAR = [
+  [-90, 99], [-40, 102], [17, 101], [70, 99.5], [115, 102],
+  [134, 60], [132, 20], [134, -30], [132, -63], [134, -90],
+  [80, -99], [30, -102], [-30, -99], [-90, -102],
+  [-132, -60], [-134, -24], [-132, 20], [-134, 70],
+];
+const JALUR_TENGAH = [
+  [37.5, 0],
+  [38, -12], [38, -30], [38, -38], [38, -46], [20, -48], [-16, -48], [-38, -44],
+  [-43, -24], [-43, -8], [-28, 0], [0, 0], [22, 0],
+  [37.5, 0],
+  [37.5, 22], [36, 40], [22, 48], [4, 48],
+  [-1.5, 40], [-1.5, 26], [-1.5, 12],
+  [8, 4], [24, 1],
+];
+const TRACK_LUAR = makeTrack(JALUR_LUAR);
+const TRACK_TENGAH = makeTrack(JALUR_TENGAH);
 const ALL_TRAINS = [
   makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
     { loco:0x4E7A3A, wagons:[0xE8A15C, 0x8d81c4], phase: 0 }),
   makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
     { loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: TRACK_LUAR.total / 2 }),
-  makeTrain(TRACK_TENGAH, [[-16, 45.5], [-45.5, 25], [10, -45.5]],
+  makeTrain(TRACK_TENGAH, [[-16, 48], [-43, -24], [10, -48]],
     { loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: TRACK_TENGAH.total * .35 }),
 ];
 window.ZOO_TRAINS = ALL_TRAINS;
@@ -618,10 +628,10 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-[[17,96.8,'Stasiun Gerbang',Math.PI],[130.7,-63,'Stasiun Savana',-Math.PI/2],[-130.7,-24,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
+[[17,96.8,'Stasiun Gerbang',Math.PI],[129.3,-63,'Stasiun Savana',-Math.PI/2],[-130.7,-24,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA KELILING', lab, 3.8), x, z, ry);
 });
-[[-16,43.7,'Stasiun Edukasi',Math.PI],[-43.7,25,'Stasiun Primata',Math.PI/2],[10,-43.7,'Stasiun Nusantara',0]].forEach(([x,z,lab,ry])=>{
+[[-16,44.7,'Stasiun Edukasi',Math.PI],[-46.5,-24,'Stasiun Primata',-Math.PI/2],[10,-44.7,'Stasiun Nusantara',0]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA TENGAH', lab, 3.8), x, z, ry);
 });
 
@@ -1003,9 +1013,9 @@ box(1.34, .08, .84, MAT.wood, -16, 2.2, 14.1);
 INTERACT.push({ name:'Pak Direktur', x:-16, z:12.4, top:4.9, group:DEV.group, baseY:1, parts:DEV, idx:0, speakT:-9, lines: DIALOG['Pak Direktur'] });
 
 /* Pengunjung NPC: 3 pejalan kaki low-poly (pakai makeHumanoid, warna beda)
-   menyusuri jalur pejalan kaki (z=±48 dan x=-43 di jalan sabuk; sisi timur
-   di x=37.5 sejajar rel karena koridor x=43 tertutup petak I1 dan E4),
-   berjalan pelan. Bisa disapa: mereka berhenti, menoleh ke pemain, dan
+   menyusuri sabuk selatan (mengelilingi area Edukasi dan plaza:
+   z=44.5, x=34.8, z=4, x=-40) karena koridor utara dan timur sekarang
+   dipakai jalur berkelok Rel Tengah; berjalan pelan. Bisa disapa: mereka berhenti, menoleh ke pemain, dan
    menjawab lewat bubble + suara. Bayangannya dimatikan supaya tetap
    ringan di HP. */
 const NPC_LOOP = (()=>{
@@ -1014,8 +1024,8 @@ const NPC_LOOP = (()=>{
     const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 2));
     for(let i = 0; i < n; i++) pts.push([x0 + (x1 - x0) * i / n, z0 + (z1 - z0) * i / n]);
   };
-  line(-43, 48, 37.5, 48); line(37.5, 48, 37.5, -48);
-  line(37.5, -48, -43, -48); line(-43, -48, -43, 48);
+  line(-40, 44.5, 34.8, 44.5); line(34.8, 44.5, 34.8, 4);
+  line(34.8, 4, -40, 4); line(-40, 4, -40, 44.5);
   const cum = [0];
   for(let i = 1; i <= pts.length; i++){
     const a = pts[i - 1], b = pts[i % pts.length];
@@ -1389,32 +1399,38 @@ function drawMap(){
     c.fillStyle = '#2E2A24';
     c.fillText(txt, lx, ly);
   }
-  /* Jalur kereta keliling + stasiunnya */
+  /* Jalur kereta keliling + stasiunnya (garis mengikuti titik sampel rel) */
   c.strokeStyle = 'rgba(90,74,52,.75)'; c.lineWidth = 2; c.setLineDash([6, 4]);
-  c.strokeRect(X(-134), Y(-101), 268 * S, 202 * S);
+  c.beginPath();
+  TRACK_LUAR.pts.forEach((p, i)=>{ const px = X(p[0]), py = Y(p[1]); if(i === 0) c.moveTo(px, py); else c.lineTo(px, py); });
+  c.closePath(); c.stroke();
   c.setLineDash([]);
   c.font = '700 8.5px Outfit, sans-serif'; c.textAlign = 'center';
   for(const st of [[17, 101, 'Stasiun Gerbang'], [134, -63, 'Stasiun Savana'], [-134, -24, 'Stasiun Danau']]){
+    const sp = TRACK_LUAR.stopPoint(st[0], st[1]);
     c.fillStyle = '#8a5a2b';
-    c.beginPath(); c.arc(X(st[0]), Y(st[1]), 4, 0, 7); c.fill();
+    c.beginPath(); c.arc(X(sp.x), Y(sp.z), 4, 0, 7); c.fill();
     c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
     c.fillStyle = 'rgba(46,42,36,.8)';
-    if(st[0] < -100){ c.textAlign = 'left'; c.fillText(st[2], X(st[0]) + 8, Y(st[1]) - 8); }
-    else if(st[0] > 100){ c.textAlign = 'right'; c.fillText(st[2], X(st[0]) - 8, Y(st[1]) - 8); }
-    else c.fillText(st[2], X(st[0]), Y(st[1]) - 8);
+    if(st[0] < -100){ c.textAlign = 'left'; c.fillText(st[2], X(sp.x) + 8, Y(sp.z) - 8); }
+    else if(st[0] > 100){ c.textAlign = 'right'; c.fillText(st[2], X(sp.x) - 8, Y(sp.z) - 8); }
+    else c.fillText(st[2], X(sp.x), Y(sp.z) - 8);
     c.textAlign = 'center';
   }
-  /* Jalur kereta tengah + stasiunnya */
+  /* Jalur kereta tengah (angka delapan) + stasiunnya */
   c.strokeStyle = 'rgba(90,74,52,.6)'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
-  c.strokeRect(X(-45.5), Y(-45.5), 84.5 * S, 91 * S);
+  c.beginPath();
+  TRACK_TENGAH.pts.forEach((p, i)=>{ const px = X(p[0]), py = Y(p[1]); if(i === 0) c.moveTo(px, py); else c.lineTo(px, py); });
+  c.closePath(); c.stroke();
   c.setLineDash([]);
   c.font = '700 8px Outfit, sans-serif'; c.textAlign = 'center';
-  for(const st of [[-16, 45.5, 'St. Edukasi'], [-45.5, 25, 'St. Primata'], [10, -45.5, 'St. Nusantara']]){
+  for(const st of [[-16, 48, 'St. Edukasi'], [-43, -24, 'St. Primata'], [10, -48, 'St. Nusantara']]){
+    const sp = TRACK_TENGAH.stopPoint(st[0], st[1]);
     c.fillStyle = '#B84A39';
-    c.beginPath(); c.arc(X(st[0]), Y(st[1]), 3, 0, 7); c.fill();
+    c.beginPath(); c.arc(X(sp.x), Y(sp.z), 3, 0, 7); c.fill();
     c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke();
     c.fillStyle = 'rgba(46,42,36,.8)';
-    c.fillText(st[2], X(st[0]), Y(st[1]) - 7);
+    c.fillText(st[2], X(sp.x), Y(sp.z) - 7);
   }
   /* Penanda panggung edukasi */
   c.font = '800 9px Outfit, sans-serif';
