@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1902';
+const BUILD = '20261105-1913';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1120,19 +1120,26 @@ const POST_A = [], POST_B = [];
   c.fillStyle = 'rgba(253,252,248,.5)'; c.fillRect(112, 196, cv.width - 224, 3);
   fit('USULKAN HEWANMU DI VIDEO TERBARU', 52);
   c.fillStyle = '#e6e6fa'; c.fillText('USULKAN HEWANMU DI VIDEO TERBARU', cv.width/2, 248);
-  placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 24, 80, 0);
+  placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 27, 80, 0);
 }
 
 /* Warna dasar tiap blok + papan nama blok di tepi jalan.
-   Lima papan digeser khusus (audit layout 5 Nov): posisi bawaannya
-   menyentuh sapuan kereta (Zona Air dan Pegunungan tertembus rel
-   Safari, Edukasi menyentuh rel Wisata, Cadangan dan Savana ketat). */
+   Posisi khusus hasil dua audit 5 Nov: audit layout (beberapa papan
+   bawaan menyentuh sapuan kereta) dan audit papan malamnya (perintah
+   suara Demile: papan wajib berdiri bebas di depan bloknya, tidak
+   nempel pagar — papan Karnivora bawaan berdiri di DALAM petak C4,
+   papan Primata bertumpuk persis dengan papan petak A2, papan
+   Savana masuk 1 unit ke dalam pagar B2). */
 const PAPAN_BLOK_KHUSUS = {
-  'BLOK D · ZONA AIR': [-70, -6.2],
-  'BLOK I · PEGUNUNGAN': [66, -5.2],
+  'BLOK D · ZONA AIR': [-64, -6.35],
+  'BLOK I · PEGUNUNGAN': [95, -5.35],
   'AREA EDUKASI': [3, 41.8],
   'LAHAN CADANGAN': [-86, -55.2],
-  'BLOK B · SAVANA': [86, -55],
+  'BLOK B · SAVANA': [70, -52.85],
+  'BLOK A · PRIMATA': [-99, 42.15],
+  'BLOK C · KARNIVORA': [0, -50.6],
+  'BLOK H · NUSANTARA': [0, -5.35],
+  'BLOK E · AVIARI': [86, 41.65],
 };
 for(const b of BLOCKS){
   flatRect(b.cx, b.cz, b.w, b.d, b.tint, .012);
@@ -1142,6 +1149,20 @@ for(const b of BLOCKS){
   const sz = ov ? ov[1] : (b.cz > 60 ? b.cz - b.d/2 + 2.2 : b.cz + b.d/2 - 2.2);
   placeSign(sign, sx, sz, b.cz > 60 ? Math.PI : 0);
 }
+
+/* Papan petak di sisi lain (audit papan 5 Nov malam): koridor
+   selatan petak-petak ini terlalu sempit untuk papan bebas —
+   tumpukan Karnivora C1–C4 pindah ke ujung barat menghadap
+   koridor stasiunnya, B3 ke ujung timur, D3 ke ujung barat
+   (selatannya rel Safari), H1/H2 dan I1 ke sisi utara. */
+const PAPAN_PETAK_KHUSUS = {
+  C1: [-35.15, -86, -Math.PI / 2], C2: [-35.15, -76, -Math.PI / 2],
+  C3: [-35.15, -66, -Math.PI / 2], C4: [-35.15, -56, -Math.PI / 2],
+  B3: [123.15, -81, Math.PI / 2], D3: [-115.15, -9, -Math.PI / 2],
+  H1: [-19, -42.65, Math.PI], H2: [18.5, -42.65, Math.PI],
+  I1: [61, -43.15, Math.PI],
+};
+const PAPAN_PETAK_JARAK = { A4: 1, A5: 1, A6: 1 };
 
 /* Pagar petak: tiang + dua palang di empat sisi */
 function fencePlot(p){
@@ -1169,9 +1190,16 @@ function fencePlot(p){
   collideBox(x0, p.cz, .9, p.d + .9, 1.15);
   collideBox(x1, p.cz, .9, p.d + .9, 1.15);
   const label = p.animal ? p.animal.name : 'Kosong';
-  /* 0,7 (bukan 1,5): papan menempel pagar supaya tidak menjorok ke
-     sapuan kereta di koridor sempit (audit layout 5 Nov). */
-  placeSign(signBoard(p.code, label), p.cx, z1 + .7, 0);
+  /* Papan petak berdiri bebas 1,15 di depan pagar selatan petaknya
+     (perintah suara Demile 5 Nov malam: jangan ada papan nempel
+     pagar/tembok). Petak yang koridor selatannya sempit pindah ke
+     sisi lain yang lapang (PAPAN_PETAK_KHUSUS); baris A4–A6 yang
+     koridornya cuma 2 memakai jarak 1,0 yang seimbang dua sisi.
+     D4 tanpa papan petak: sudah diwakili papan Akuarium. */
+  const kh = PAPAN_PETAK_KHUSUS[p.code];
+  if(kh) placeSign(signBoard(p.code, label), kh[0], kh[1], kh[2]);
+  else if(p.code !== 'D4')
+    placeSign(signBoard(p.code, label), p.cx, z1 + (PAPAN_PETAK_JARAK[p.code] || 1.15), 0);
 }
 PLOTS.forEach(fencePlot);
 
@@ -1237,7 +1265,7 @@ PLOTS.forEach(p=>{
     new THREE.MeshLambertMaterial({ color:0xcfc6ea, transparent:true, opacity:.38, side:THREE.DoubleSide }));
   dome.position.set(56, 0, 24); scene.add(dome);
   cyl(12.6, 12.6, .5, MAT.rock, 56, .25, 24, scene, 28);
-  placeSign(signBoard('E1', 'Kubah Burung'), 46.5, 37.5, -.3);
+  placeSign(signBoard('E1', 'Kubah Burung'), 40.2, 30, -.5);
   colliders.push({ x:56, z:24, r:13 });
 
   cyl(5.5, 6.1, 1, MAT.rock, -16, .5, 14, scene, 20);
@@ -1425,14 +1453,21 @@ for(const b of BUILDINGS){
     else if(b.label === 'WC') hiasWC(b);
     collideBox(b.cx, b.cz, b.w, b.d);
   }
-  /* Mushola dan Akuarium digeser khusus (audit layout 5 Nov): papan
-     sisi timurnya menjorok ke rel Safari (plaza) dan rel Wisata
-     (koridor barat). */
+  /* Papan fasilitas berdiri bebas 1,6 di depan muka selatan
+     bangunannya (audit papan 5 Nov malam, perintah suara Demile:
+     jangan nempel tembok — rumus lama menaruh papan miring di
+     sudut timur dan ujung papannya MENEMBUS kotak bangunan).
+     Akuarium berdiri di dalam petak D4, jadi papannya diukur dari
+     pagar petaknya (setengah kedalaman petak = 10), bukan dari
+     dinding gedungnya. Mushola pengecualian ke sisi barat: sisi
+     selatannya cuma 2,5 dari rel penutup Safari (garis z 90). */
   if(b.label !== 'Papan direktur'){
-    let bsx = b.cx + b.w/2 + 1, bsz = b.cz + b.d/2 - .6;
-    if(b.label === 'Mushola') bsx = b.cx - b.w/2 - 1;
-    if(b.label === 'Akuarium'){ bsx = b.cx; bsz = b.cz + b.d/2 + 1.5; }
-    placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), bsx, bsz, -.35);
+    if(b.label === 'Mushola')
+      placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx - b.w/2 - 1.6, b.cz, -Math.PI / 2);
+    else {
+      const bsz = b.label === 'Akuarium' ? b.cz + 10 + 1.6 : b.cz + b.d/2 + 1.6;
+      placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx, bsz, 0);
+    }
   }
 }
 
