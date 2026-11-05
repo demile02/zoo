@@ -290,13 +290,13 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0900';
+const BUILD = '20261105-0913';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
     if(sv && isFinite(sv.x) && isFinite(sv.z) && isFinite(sv.h)) return sv;
   }catch(_){}
-  return { x:0, z:87, h:Math.PI };
+  return { x:0, z:76, h:Math.PI };
 })();
 
 /* Penghitung hari otomatis sejak tanggal mulai (ubah tanggalnya di sini) */
@@ -407,10 +407,10 @@ flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
    karnivora, savana, reptil dan bangunan plaza, jadi dipindah ke sini.
    Sisi timur menyempit ke x=39: celah satu-satunya di antara tepi blok
    (x=38), petak I1 (x=40) dan petak E4 (x=41). */
-flatRect(-45.5, 0, 1.6, 91, 0x8a8578, .03);
-flatRect(39, 0, 1.6, 91, 0x8a8578, .03);
-flatRect(-3.25, -45.5, 84.5, 1.6, 0x8a8578, .03);
-flatRect(-3.25, 45.5, 84.5, 1.6, 0x8a8578, .03);
+flatRect(-45.5, 0, 1.9, 91, 0x8a8578, .03);
+flatRect(39, 0, 1.9, 91, 0x8a8578, .03);
+flatRect(-3.25, -45.5, 84.5, 1.9, 0x8a8578, .03);
+flatRect(-3.25, 45.5, 84.5, 1.9, 0x8a8578, .03);
 
 /* Kereta keliling: lokomotif + dua gerbong mengikuti rel persegi bertepi
    bundar, berhenti sebentar di tiap stasiun. */
@@ -461,8 +461,8 @@ const TRAIN = (()=>{
   const wheelM = new THREE.MeshLambertMaterial({ color:0x333a45 });
   function wheels(g, xs){
     for(const wx of xs){
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .25, 10), wheelM);
-      w.rotation.x = Math.PI/2; w.position.set(wx, .45, .95); g.add(w);
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, .3, 10), wheelM);
+      w.rotation.x = Math.PI/2; w.position.set(wx, .6, .95); g.add(w);
       const w2 = w.clone(); w2.position.z = -.95; g.add(w2);
     }
   }
@@ -470,22 +470,22 @@ const TRAIN = (()=>{
   {
     const green = new THREE.MeshLambertMaterial({ color:0x4E7A3A });
     const cream = new THREE.MeshLambertMaterial({ color:0xf3ead8 });
-    box(3.4, 1.1, 1.7, green, 0, 1.15, 0, loco);
-    box(1.3, 1.5, 1.7, green, -1, 1.9, 0, loco);
-    box(1.5, .18, 1.9, cream, -1, 2.72, 0, loco);
-    cyl(.24, .3, .9, wheelM, 1.2, 2.1, 0, loco, 10);
-    cyl(.5, .5, .35, new THREE.MeshLambertMaterial({ color:0xE86A2C }), .45, 1.95, 0, loco, 12);
-    wheels(loco, [-1.1, 1.1]);
+    box(4.6, 1.5, 1.7, green, 0, 1.55, 0, loco);
+    box(1.75, 2, 1.7, green, -1.35, 2.55, 0, loco);
+    box(2, .22, 1.9, cream, -1.35, 3.66, 0, loco);
+    cyl(.3, .38, 1.2, wheelM, 1.6, 2.8, 0, loco, 10);
+    cyl(.65, .65, .45, new THREE.MeshLambertMaterial({ color:0xE86A2C }), .6, 2.6, 0, loco, 12);
+    wheels(loco, [-1.5, 1.5]);
   }
   function wagon(color){
     const g = new THREE.Group();
     const m = new THREE.MeshLambertMaterial({ color });
-    box(3, .5, 1.8, m, 0, .85, 0, g);
-    box(3, .8, .16, m, 0, 1.35, .82, g);
-    box(3, .8, .16, m, 0, 1.35, -.82, g);
-    box(.16, .8, 1.8, m, 1.42, 1.35, 0, g);
-    box(.16, .8, 1.8, m, -1.42, 1.35, 0, g);
-    wheels(g, [-1, 1]);
+    box(4.05, .65, 1.8, m, 0, 1.15, 0, g);
+    box(4.05, 1.05, .16, m, 0, 1.8, .82, g);
+    box(4.05, 1.05, .16, m, 0, 1.8, -.82, g);
+    box(.16, 1.05, 1.8, m, 1.92, 1.8, 0, g);
+    box(.16, 1.05, 1.8, m, -1.92, 1.8, 0, g);
+    wheels(g, [-1.35, 1.35]);
     return g;
   }
   const cars = [loco, wagon(0xE8A15C), wagon(0x8d81c4)];
@@ -515,7 +515,7 @@ const TRAIN = (()=>{
       }
     }
     cars.forEach((c, i)=>{
-      const p = at(s - i * 4.4);
+      const p = at(s - i * 5.6);
       c.position.set(p.x, 0, p.z);
       c.rotation.y = p.ang - Math.PI/2;
     });
@@ -525,7 +525,7 @@ const TRAIN = (()=>{
         smokeTimer = 0.45;
         const p = PUFFS.find(p=>!p.m.visible) || PUFFS[0];
         loco.updateMatrixWorld();
-        chimneyTop.set(1.2, 2.6, 0); loco.localToWorld(chimneyTop);
+        chimneyTop.set(1.6, 3.5, 0); loco.localToWorld(chimneyTop);
         p.m.position.copy(chimneyTop);
         p.age = 0; p.m.visible = true;
       }
@@ -548,7 +548,7 @@ const TRAIN = (()=>{
 /* Penanda zoo = papan kayu fisik yang berdiri di dunia, bukan teks melayang:
    dua tiang + papan coklat berteks cat, satu keluarga dengan papan gerbang utama.
    Ukurannya tetap di dunia, jadi layar tidak penuh teks dari segala jarak. */
-function signBoard(top, bottom, w = 3.4, h = 1.05, cy = 1.6){
+function signBoard(top, bottom, w = 3.6, h = 1.25, cy = 2.35){
   const cv = document.createElement('canvas');
   cv.width = 512; cv.height = Math.max(96, Math.round(512 * h / w));
   const c = cv.getContext('2d');
@@ -616,8 +616,8 @@ const POST_A = [], POST_B = [];
 /* Gerbang utama, sejajar plaza (x 0) */
 {
   const g = new THREE.Group();
-  cyl(.55,.65,9,MAT.trunk,-6,4.5,93,g); cyl(.55,.65,9,MAT.trunk,6,4.5,93,g);
-  box(15,1.1,1.6,MAT.woodD,0,8.6,93,g);
+  cyl(.55,.65,7.5,MAT.trunk,-6,3.75,93,g); cyl(.55,.65,7.5,MAT.trunk,6,3.75,93,g);
+  box(15,1.1,1.6,MAT.woodD,0,7.1,93,g);
   const signC = document.createElement('canvas'); signC.width = 1024; signC.height = 160;
   const c = signC.getContext('2d');
   c.fillStyle = '#6f5133'; c.fillRect(0,0,1024,160);
@@ -626,7 +626,7 @@ const POST_A = [], POST_B = [];
   c.fillText('KEBUN BINATANG KOMEN', 512, 84);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(13.4,2.1),
     new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(signC) }));
-  sign.position.set(0,8.6,93.85); g.add(sign);
+  sign.position.set(0,7.1,93.85); g.add(sign);
   scene.add(g);
 }
 
@@ -653,7 +653,7 @@ const POST_A = [], POST_B = [];
   c.fillStyle = 'rgba(253,252,248,.5)'; c.fillRect(112, 196, cv.width - 224, 3);
   fit('USULKAN HEWANMU DI VIDEO TERBARU', 52);
   c.fillStyle = '#e6e6fa'; c.fillText('USULKAN HEWANMU DI VIDEO TERBARU', cv.width/2, 248);
-  placeSign({ w:10, h:3, cy:2, tex:new THREE.CanvasTexture(cv) }, 24, 80, 0);
+  placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 24, 80, 0);
 }
 
 /* Warna dasar tiap blok + papan nama blok di tepi jalan */
@@ -671,7 +671,7 @@ function fencePlot(p){
   const x0=p.cx-p.w/2, x1=p.cx+p.w/2, z0=p.cz-p.d/2, z1=p.cz+p.d/2;
   const post = (x,z)=> POST_B.push([x,z]);
   const rail = (len,x,z,rot)=>{
-    for(const y of [.95, .45]){
+    for(const y of [1.5, .7]){
       const g = new THREE.BoxGeometry(len,.12,.08);
       if(rot) g.rotateY(rot);
       g.translate(x, y, z);
@@ -705,7 +705,7 @@ function buildPosts(list, r, h){
   scene.add(im);
 }
 buildPosts(POST_A, .12, 2);
-buildPosts(POST_B, .09, 1.5);
+buildPosts(POST_B, .09, 2.2);
 
 /* Isi dasar tiap kandang supaya tidak kosong melompong: pohon, semak,
    batu, dan kolam mini mengikuti karakter bloknya. Posisi acak tapi
@@ -760,7 +760,7 @@ PLOTS.forEach(p=>{
   placeSign(signBoard('E1', 'Kubah Burung'), 46.5, 37.5, -.3);
   collideBox(56, 24, 26, 26);
 
-  cyl(5.5, 6.1, .7, MAT.rock, -16, .35, 14, scene, 20);
+  cyl(5.5, 6.1, 1, MAT.rock, -16, .5, 14, scene, 20);
   placeSign(signBoard('PANGGUNG', 'Edukasi'), -23.5, 20.5, -.3);
   collideBox(-16, 14, 13, 13);
 }
@@ -769,12 +769,12 @@ PLOTS.forEach(p=>{
    terputus hanya di gerbang utama selatan, menara batu di empat sudut. */
 {
   const seg = (len, x, z, rot)=>{
-    const g = new THREE.BoxGeometry(len, 3, .8);
+    const g = new THREE.BoxGeometry(len, 4.2, .8);
     if(rot) g.rotateY(rot);
-    g.translate(x, 1.5, z); WALL_GEOS.push(g);
+    g.translate(x, 2.1, z); WALL_GEOS.push(g);
     const c = new THREE.BoxGeometry(len, .45, 1.15);
     if(rot) c.rotateY(rot);
-    c.translate(x, 3.2, z); ROOF_GEOS.push(c);
+    c.translate(x, 4.42, z); ROOF_GEOS.push(c);
   };
   seg(264, 0, -97, 0);
   seg(195, -131, 0, Math.PI/2);
@@ -782,22 +782,22 @@ PLOTS.forEach(p=>{
   seg(124, -69, 97, 0);
   seg(124, 69, 97, 0);
   for(const [x, z] of [[-131,-97],[131,-97],[-131,97],[131,97]])
-    cyl(1, 1.25, 4.4, MAT.rock, x, 2.2, z, scene, 10);
+    cyl(1, 1.25, 5.6, MAT.rock, x, 2.8, z, scene, 10);
 }
 
 /* Bangunan fasilitas: dinding krem + atap coklat bata + papan nama */
 for(const b of BUILDINGS){
-  const wg = new THREE.BoxGeometry(b.w, 3, b.d); wg.translate(b.cx, 1.5, b.cz); WALL_GEOS.push(wg);
-  const rg = new THREE.BoxGeometry(b.w+.8, .5, b.d+.8); rg.translate(b.cx, 3.25, b.cz); ROOF_GEOS.push(rg);
-  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3, .95, 1.5), b.cx + b.w/2 + 1, b.cz + b.d/2 - .6, -.35);
+  const wg = new THREE.BoxGeometry(b.w, 4.6, b.d); wg.translate(b.cx, 2.3, b.cz); WALL_GEOS.push(wg);
+  const rg = new THREE.BoxGeometry(b.w+.8, .5, b.d+.8); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
+  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx + b.w/2 + 1, b.cz + b.d/2 - .6, -.35);
   collideBox(b.cx, b.cz, b.w, b.d);
 }
 
 /* Pohon di sepanjang jalan dan di dalam petak besar */
 function tree(x,z,s=1){
-  const tg = new THREE.CylinderGeometry(.28*s,.4*s,2.6*s,8); tg.translate(x, 1.3*s, z); TRUNK_GEOS.push(tg);
-  const a = new THREE.SphereGeometry(2.1*s,10,8); a.translate(x, 4*s, z); LEAF_GEOS.push(a);
-  const b = new THREE.SphereGeometry(1.5*s,10,8); b.translate(x + .9*s, 5.1*s, z + .3*s); LEAF2_GEOS.push(b);
+  const tg = new THREE.CylinderGeometry(.34*s,.48*s,3.9*s,8); tg.translate(x, 1.95*s, z); TRUNK_GEOS.push(tg);
+  const a = new THREE.SphereGeometry(2.6*s,10,8); a.translate(x, 5.9*s, z); LEAF_GEOS.push(a);
+  const b = new THREE.SphereGeometry(1.9*s,10,8); b.translate(x + 1.1*s, 7.3*s, z + .4*s); LEAF2_GEOS.push(b);
   colliders.push({ x, z, r:1.1*s });
 }
 [[-120,-88],[120,-88],[-120,88],[120,88],[-48,-60],[48,-60],[-48,60],[48,60],
@@ -904,9 +904,9 @@ function monkey(){
 }
 {
   cyl(2.2,2.8,1,MAT.rock,-109,.5,35);
-  const m = monkey(); m.position.set(-109, 1, 35); m.rotation.y = .7;
+  const m = monkey(); m.scale.setScalar(.28); m.position.set(-109, 1, 35); m.rotation.y = .7;
   scene.add(m);
-  INTERACT.push({ name:'Galang', x:-109, z:35, top:5.8, group:m, baseY:1, idx:0, speakT:-9, idle:'kera', lines: DIALOG['Galang'] });
+  INTERACT.push({ name:'Galang', x:-109, z:35, top:2.5, group:m, baseY:1, hopAmp:.3, idx:0, speakT:-9, idle:'kera', lines: DIALOG['Galang'] });
 }
 
 /* Manusia low-poly berkaki dan bertangan: kaki berporos di pinggul,
@@ -962,11 +962,11 @@ scene.add(visitor);
 
 /* Pak Direktur (karakter developer) berdiri di panggung edukasi di belakang podium */
 const DEV = makeHumanoid({ shirt:0xC9A86A, skin:0xe8b98d, pants:0x5b4632, hat:0x8a6742, hatStyle:'brim' });
-DEV.group.position.set(-16, .7, 12.4);
+DEV.group.position.set(-16, 1, 12.4);
 scene.add(DEV.group);
-box(1.1, 1.15, .6, MAT.woodD, -16, 1.28, 14.1);
-box(1.34, .08, .84, MAT.wood, -16, 1.9, 14.1);
-INTERACT.push({ name:'Pak Direktur', x:-16, z:12.4, top:4.6, group:DEV.group, baseY:.7, parts:DEV, idx:0, speakT:-9, lines: DIALOG['Pak Direktur'] });
+box(1.1, 1.15, .6, MAT.woodD, -16, 1.58, 14.1);
+box(1.34, .08, .84, MAT.wood, -16, 2.2, 14.1);
+INTERACT.push({ name:'Pak Direktur', x:-16, z:12.4, top:4.9, group:DEV.group, baseY:1, parts:DEV, idx:0, speakT:-9, lines: DIALOG['Pak Direktur'] });
 
 /* Pengunjung NPC: 3 pejalan kaki low-poly (pakai makeHumanoid, warna beda)
    menyusuri jalur pejalan kaki (z=±48 dan x=-43 di jalan sabuk; sisi timur
@@ -1506,7 +1506,7 @@ function updateInteract(t){
     if(c.parts){
       c.parts.armR.rotation.z = (p >= 0 && p < 1.8) ? 2.3 + Math.sin(t * 11) * .35 : -.07;
     } else if(c.group){
-      const sp = (p >= 0 && p < 1) ? Math.sin(p * Math.PI) * .8 : 0;
+      const sp = (p >= 0 && p < 1) ? Math.sin(p * Math.PI) * (c.hopAmp ?? .8) : 0;
       c.group.position.y = c.baseY + sp + (c.wanderY || 0);
     }
   }
@@ -1525,10 +1525,10 @@ function updateInteract(t){
    gabungan WOOD_GEOS (+0 draw call), ada tabrakan supaya tidak ditembus. */
 function bench(x, z, ry){
   const parts = [
-    [2.2, .08, .6, 0, .45, 0],
-    [2.2, .5, .08, 0, .78, -.26],
-    [.12, .45, .5, -.95, .225, 0],
-    [.12, .45, .5, .95, .225, 0],
+    [2.2, .13, .6, 0, .72, 0],
+    [2.2, .8, .08, 0, 1.25, -.26],
+    [.12, .72, .5, -.95, .36, 0],
+    [.12, .72, .5, .95, .36, 0],
   ];
   for(const [w, h, d, ox, oy, oz] of parts){
     const g = new THREE.BoxGeometry(w, h, d);
