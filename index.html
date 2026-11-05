@@ -52,12 +52,14 @@
   #talkBtn:active{transform:scale(.96)}
   #jumpBtn{position:absolute;z-index:8;right:16px;bottom:16px;width:62px;height:62px;border-radius:50%;background:var(--paper);color:var(--ink);border:2px solid #E6E6FA;font:inherit;font-weight:800;font-size:12.5px;box-shadow:0 12px 26px rgba(46,42,36,.25);cursor:pointer}
   #jumpBtn:active{transform:scale(.93)}
+  #rideBtn{position:absolute;z-index:8;right:16px;bottom:92px;padding:13px 18px;border-radius:999px;background:var(--paper);color:var(--ink);border:2px solid #E6E6FA;font:inherit;font-weight:800;font-size:14px;box-shadow:0 12px 26px rgba(46,42,36,.25);cursor:pointer;display:none}
+  #rideBtn:active{transform:scale(.95)}
   #muteBtn{position:absolute;z-index:8;top:12px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
   #mapBtn{position:absolute;z-index:8;top:12px;right:64px;height:44px;padding:0 16px;border-radius:999px;background:rgba(253,252,248,.94);border:0;font:inherit;font-weight:800;font-size:13.5px;color:var(--ink);box-shadow:var(--card-shadow);cursor:pointer}
   #helpBtn{position:absolute;z-index:8;top:64px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font:inherit;font-size:18px;font-weight:800;color:#6F66A3;box-shadow:var(--card-shadow);cursor:pointer}
   #camBtn{position:absolute;z-index:8;top:116px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
   #camBtn.on{background:#6F66A3;color:#fff}
-  #app.content .hud,#app.content #card,#app.content #bubble,#app.content #talkBtn,#app.content #jumpBtn,#app.content #muteBtn,#app.content #mapBtn,#app.content #helpBtn,#app.content #social{display:none!important}
+  #app.content .hud,#app.content #card,#app.content #bubble,#app.content #talkBtn,#app.content #jumpBtn,#app.content #rideBtn,#app.content #muteBtn,#app.content #mapBtn,#app.content #helpBtn,#app.content #social{display:none!important}
   #app.content #joy{opacity:0!important}
   #welcome{position:absolute;inset:0;z-index:35;background:rgba(46,42,36,.5);display:none;place-items:center;padding:16px}
   #welcome.show{display:grid}
@@ -107,6 +109,7 @@
 <div id="bubble"><div id="bubbleName"></div><div id="bubbleText"></div></div>
 <button id="talkBtn" type="button"></button>
 <button id="jumpBtn" type="button">Lompat</button>
+<button id="rideBtn" type="button">🚂 Naik Kereta</button>
 <button id="muteBtn" type="button" aria-label="Suara">🔊</button>
 <button id="mapBtn" type="button">🗺️ Denah</button>
 <button id="helpBtn" type="button" aria-label="Bantuan">?</button>
@@ -116,7 +119,7 @@
   <div class="wpanel">
     <div class="wword">Selamat datang!</div>
     <div class="wbody">Ini Kebun Binatang Komen, zoo yang dibangun dari komentar. Setiap hari satu hewan baru datang dari komentar paling disukai, dan namanya adalah nama pengusulnya.</div>
-    <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat · tombol 📷 buat mode konten (HUD hilang, cocok buat screenshot)</div>
+    <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat · tombol 📷 buat mode konten (HUD hilang, cocok buat screenshot)<br>Kereta berhenti 15 detik di stasiun: dekati gerbong lalu tekan tombol Naik buat ikut keliling, turun di stasiun berikutnya<br>Cubit dua jari di sisi kanan layar buat mengatur zoom kamera</div>
     <button class="wgo" id="welcomeGo" type="button">Mulai jalan-jalan</button>
   </div>
 </div>
@@ -290,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1226';
+const BUILD = '20261105-1252';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -569,6 +572,94 @@ const ALL_TRAINS = [
 window.ZOO_TRAINS = ALL_TRAINS;
 /* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun bergantian */
 const LAMA_BERHENTI = 15;
+/* Pemain vs kereta: rangkaian itu PADAT (tidak bisa ditembus pemain),
+   dan bisa DINAIKI saat berhenti di stasiun. Penumpang berdiri di
+   gerbong tengah; turun hanya saat kereta berhenti di stasiun lagi. */
+let naik = null, calonNaik = null, labelNaik = '';
+const rideBtn = document.getElementById('rideBtn');
+window.ZOO_RIDE = { get naik(){ return !!naik; }, get calon(){ return !!calonNaik; } };
+function sJarak(T){
+  const total = T.track.total;
+  let best = 1e9;
+  for(const st of T.stopsAt){
+    const f = ((T.s - st) % total + total) % total;
+    best = Math.min(best, f, total - f);
+  }
+  return best;
+}
+function titikBebas(x, z){
+  for(const c of colliders){
+    if(c.box){ if(x > c.x0 && x < c.x1 && z > c.z0 && z < c.z1) return false; }
+    else if(Math.hypot(x - c.x, z - c.z) < c.r) return false;
+  }
+  return true;
+}
+function setRideBtn(label){
+  if(label === labelNaik) return;
+  labelNaik = label;
+  rideBtn.style.display = label ? 'block' : 'none';
+  if(label) rideBtn.textContent = label;
+}
+function updatePemainKereta(dt){
+  if(naik){
+    const T = naik.T, car = T.cars[1];
+    const p = T.track.at(T.s - 5.6);
+    visitor.position.set(car.position.x, 1.45, car.position.z);
+    heading = p.ang;
+    visitor.rotation.y = heading;
+    const fx = Math.sin(heading), fz = Math.cos(heading);
+    const want = new THREE.Vector3(visitor.position.x - fx * camDist, 9.5 * camDist / 13, visitor.position.z - fz * camDist);
+    camPos.lerp(want, 1 - Math.pow(.0001, dt));
+    camera.position.copy(camPos);
+    camera.lookAt(visitor.position.x + fx * 6, 2.2, visitor.position.z + fz * 6);
+    setRideBtn((T.track.dwell > 0 && sJarak(T) < 3) ? '⬇ Turun di Stasiun' : '');
+    return;
+  }
+  for(const T of ALL_TRAINS){
+    for(const g of T.cars){
+      const th = g.rotation.y, cs = Math.cos(th), sn = Math.sin(th);
+      const dx = visitor.position.x - g.position.x, dz = visitor.position.z - g.position.z;
+      const lx = dx * cs - dz * sn, lz = dx * sn + dz * cs;
+      const HX = 2.75, HZ = 1.35;
+      if(Math.abs(lx) < HX && Math.abs(lz) < HZ){
+        const penx = HX - Math.abs(lx), penz = HZ - Math.abs(lz);
+        let nlx = lx, nlz = lz;
+        if(penx < penz) nlx = lx >= 0 ? HX : -HX; else nlz = lz >= 0 ? HZ : -HZ;
+        visitor.position.x = g.position.x + nlx * cs + nlz * sn;
+        visitor.position.z = g.position.z - nlx * sn + nlz * cs;
+      }
+    }
+  }
+  calonNaik = null;
+  for(const T of ALL_TRAINS){
+    if(T.track.dwell > 1.5 && sJarak(T) < 3){
+      const c = T.cars[1];
+      if(Math.hypot(visitor.position.x - c.position.x, visitor.position.z - c.position.z) < 5.5){ calonNaik = T; break; }
+    }
+  }
+  setRideBtn(calonNaik ? '🚂 Naik Kereta' : '');
+}
+rideBtn.addEventListener('pointerdown', e=>{
+  e.preventDefault();
+  if(naik){
+    const T = naik.T;
+    if(!(T.track.dwell > 0 && sJarak(T) < 3)) return;
+    const p = T.track.at(T.s - 5.6);
+    const fx = Math.sin(p.ang), fz = Math.cos(p.ang);
+    const car = T.cars[1];
+    const opsi = [[car.position.x + fz * 3.4, car.position.z - fx * 3.4],
+                  [car.position.x - fz * 3.4, car.position.z + fx * 3.4]];
+    const ok = opsi.find(([x, z])=> titikBebas(x, z)) || opsi[0];
+    visitor.position.x = THREE.MathUtils.clamp(ok[0], -136, 136);
+    visitor.position.z = THREE.MathUtils.clamp(ok[1], -103, 103);
+    visitor.position.y = 0;
+    naik = null;
+    setRideBtn('');
+  } else if(calonNaik){
+    naik = { T: calonNaik };
+    setRideBtn('');
+  }
+});
 const chimneyTop = new THREE.Vector3();
 const TRAINS = {
   update(dt){
@@ -976,9 +1067,9 @@ function monkey(){
 }
 {
   cyl(2.2,2.8,1,MAT.rock,-109,.5,35);
-  const m = monkey(); m.scale.setScalar(.28); m.position.set(-109, 1, 35); m.rotation.y = .7;
+  const m = monkey(); m.scale.setScalar(.8); m.position.set(-109, 1, 35); m.rotation.y = .7;
   scene.add(m);
-  INTERACT.push({ name:'Galang', x:-109, z:35, top:2.5, group:m, baseY:1, hopAmp:.3, idx:0, speakT:-9, idle:'kera', lines: DIALOG['Galang'] });
+  INTERACT.push({ name:'Galang', x:-109, z:35, top:3.9, group:m, baseY:1, hopAmp:.65, idx:0, speakT:-9, idle:'kera', lines: DIALOG['Galang'] });
 }
 
 /* Manusia low-poly berkaki dan bertangan: kaki berporos di pinggul,
@@ -1025,10 +1116,11 @@ function makeHumanoid(o){
 /* Pengunjung = karakter yang dikendalikan pemain */
 const VP = makeHumanoid({ shirt:0xE86A2C, skin:0xe8b98d, pants:0x44536b, hat:0x4E7A3A, hatStyle:'cap' });
 const visitor = VP.group;
+window.ZOO_PLAYER = visitor;
 const legL = VP.legL, legR = VP.legR, armL = VP.armL, armR = VP.armR, bodyG = VP.body;
 let walkPhase = 0, swingAmp = 0, lastStepPhase = 0, stepAlt = 0;
 let jumpY = 0, jumpV = 0;
-function doJump(){ if(jumpY <= 0 && jumpV === 0) jumpV = 10; }
+function doJump(){ if(naik) return; if(jumpY <= 0 && jumpV === 0) jumpV = 10; }
 visitor.position.set(RESTORE.x, 0, RESTORE.z);
 scene.add(visitor);
 
@@ -1096,11 +1188,20 @@ addEventListener('keyup',   e=>{ keys[e.key.toLowerCase()] = false; });
    seret layar di mana pun buat menentukan arah. Dua sentuhan bisa jalan bersamaan. */
 const joyVec = { x:0, y:0 };
 let heading = RESTORE.h;
+/* Zoom kamera: jarak ikut kamera diatur pinch dua jari (sisi kanan) / roda mouse */
+let camDist = 13;
+window.ZOO_VIEW = { get dist(){ return camDist; } };
+addEventListener('wheel', e=>{ camDist = Math.min(24, Math.max(6, camDist * Math.exp(e.deltaY * .001))); }, { passive:true });
 {
   const ui = document.getElementById('touchUI');
   const joy = document.getElementById('joy'), knob = document.getElementById('joyKnob');
   const TRAVEL = 46, DEAD = 0.14, SENS = 0.0042;
   let stickId = null, lookId = null, ox = 0, oy = 0, lx = 0;
+  let pinchId = null, pinchX = 0, pinchY = 0, pinchD = 0, pinchBase = 13, lookY = 0;
+  const pinchMove = ()=>{
+    const d = Math.hypot(lx - pinchX, lookY - pinchY);
+    if(pinchD > 0 && d > 0) camDist = Math.min(24, Math.max(6, pinchBase * pinchD / d));
+  };
   const setKnob = (dx,dy)=>{ knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`; };
   /* Di mode potret app diputar CSS 90 derajat, jadi koordinat sentuh layar
      diterjemahkan dulu ke koordinat app sebelum dipakai. */
@@ -1137,7 +1238,10 @@ let heading = RESTORE.h;
       joyVec.x = joyVec.y = 0;
       joy.classList.add('on');
     } else if(lookId === null){
-      lookId = e.pointerId; lx = p.x;
+      lookId = e.pointerId; lx = p.x; lookY = p.y;
+    } else if(pinchId === null){
+      pinchId = e.pointerId; pinchX = p.x; pinchY = p.y;
+      pinchD = Math.hypot(p.x - lx, p.y - lookY); pinchBase = camDist;
     }
   });
   ui.addEventListener('pointermove', e=>{
@@ -1156,8 +1260,10 @@ let heading = RESTORE.h;
         joyVec.x = dx * inv; joyVec.y = dy * inv;
       }
     } else if(e.pointerId === lookId){
-      heading -= (p.x - lx) * SENS;
-      lx = p.x;
+      if(pinchId !== null){ lx = p.x; lookY = p.y; pinchMove(); }
+      else { heading -= (p.x - lx) * SENS; lx = p.x; lookY = p.y; }
+    } else if(e.pointerId === pinchId){
+      pinchX = p.x; pinchY = p.y; pinchMove();
     }
   });
   const end = e=>{
@@ -1166,7 +1272,8 @@ let heading = RESTORE.h;
       knob.classList.add('rel'); setKnob(0,0);
       joy.classList.remove('on');
     }
-    if(e.pointerId === lookId) lookId = null;
+    if(e.pointerId === lookId){ lookId = null; pinchId = null; }
+    if(e.pointerId === pinchId) pinchId = null;
   };
   ui.addEventListener('pointerup', end);
   ui.addEventListener('pointercancel', end);
@@ -1685,6 +1792,7 @@ function tick(){
   if(keys['a'] || keys['arrowleft']) ix -= 1;
   if(keys['d'] || keys['arrowright']) ix += 1;
   ix += joyVec.x; iz -= joyVec.y;
+  if(naik){ ix = 0; iz = 0; }
   const len = Math.hypot(ix,iz);
   const gait = Math.min(1, len);
   const moving = len > .02;
@@ -1751,7 +1859,7 @@ function tick(){
   visitor.position.y = Math.abs(Math.cos(walkPhase)) * (.03 + .05 * gait) * swingAmp + jumpY;
 
   const fx = Math.sin(heading), fz = Math.cos(heading);
-  const want = new THREE.Vector3(visitor.position.x - fx * 13, 9.5, visitor.position.z - fz * 13);
+  const want = new THREE.Vector3(visitor.position.x - fx * camDist, 9.5 * camDist / 13, visitor.position.z - fz * camDist);
   camPos.lerp(want, 1 - Math.pow(.0001, dt));
   camera.position.copy(camPos);
   camera.lookAt(visitor.position.x + fx * 6, 2.2, visitor.position.z + fz * 6);
@@ -1760,6 +1868,7 @@ function tick(){
   updateAnimals(t, dt);
   updateInteract(t);
   TRAINS.update(dt);
+  updatePemainKereta(dt);
   for(const n of NPCS){
     /* Saat diajak bicara, NPC berhenti berjalan dan menoleh ke pemain */
     const talking = n.chat && (t - n.chat.speakT) < 3.5;
