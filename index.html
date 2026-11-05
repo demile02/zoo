@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1018';
+const BUILD = '20261105-1052';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -412,11 +412,20 @@ flatRect(-134, 0, 1.9, 202, 0x8a8578, .03);
 flatRect(134, 0, 1.9, 202, 0x8a8578, .03);
 flatRect(0, -101, 268, 1.9, 0x8a8578, .03);
 flatRect(0, 101, 268, 1.9, 0x8a8578, .03);
+/* Landasan rel tengah: lingkar jalan sabuk dalam (x -45.5..39, z ±45.5) */
+flatRect(-45.5, 0, 1.9, 91, 0x8a8578, .03);
+flatRect(39, 0, 1.9, 91, 0x8a8578, .03);
+flatRect(-3.25, -45.5, 84.5, 1.9, 0x8a8578, .03);
+flatRect(-3.25, 45.5, 84.5, 1.9, 0x8a8578, .03);
 
-/* Kereta keliling: lokomotif + dua gerbong mengikuti rel persegi bertepi
-   bundar, berhenti sebentar di tiap stasiun. */
-const TRAIN = (()=>{
-  const X0 = -134, X1 = 134, Z0 = -101, Z1 = 101, R = 9;
+/* Kereta: dua rel, tiga kereta.
+   Rel Keliling = lingkar luar denah induk, dilayani dua kereta (hijau dan
+   merah) yang berbagi rel: berhenti di stasiun berlaku untuk keduanya
+   sekaligus (sistem blok) supaya jarak antar kereta tidak pernah berubah.
+   Rel Tengah = lingkar jalan sabuk dalam, satu kereta oranye.
+   Semua kereta tercatat di window.ZOO_TRAINS (posisi + status berhenti)
+   sebagai fondasi fitur naik kereta untuk pengunjung. */
+function makeTrack(X0, X1, Z0, Z1, R){
   const pts = [];
   const line = (x0, z0, x1, z1)=>{
     const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 1.2));
@@ -454,97 +463,118 @@ const TRAIN = (()=>{
     return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f,
              ang: Math.atan2(b[0] - a[0], b[1] - a[1]) };
   }
-  const stopsAt = [[17, Z1], [X1, -63], [X0, -24]].map(([sx, sz])=>{
+  function stopNear(sx, sz){
     let best = 0, bd = 1e9;
     pts.forEach((p, i)=>{ const d = Math.hypot(p[0] - sx, p[1] - sz); if(d < bd){ bd = d; best = i; } });
     return cum[best];
-  });
-  const wheelM = new THREE.MeshLambertMaterial({ color:0x333a45 });
-  function wheels(g, xs){
-    for(const wx of xs){
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, .3, 10), wheelM);
-      w.rotation.x = Math.PI/2; w.position.set(wx, .6, .95); g.add(w);
-      const w2 = w.clone(); w2.position.z = -.95; g.add(w2);
-    }
   }
+  return { at, total, stopNear, dwell: 0 };
+}
+const wheelM = new THREE.MeshLambertMaterial({ color:0x333a45 });
+function trainWheels(g, xs){
+  for(const wx of xs){
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(.6, .6, .3, 10), wheelM);
+    w.rotation.x = Math.PI/2; w.position.set(wx, .6, .95); g.add(w);
+    const w2 = w.clone(); w2.position.z = -.95; g.add(w2);
+  }
+}
+function makeLoco(color){
   const loco = new THREE.Group();
-  {
-    const green = new THREE.MeshLambertMaterial({ color:0x4E7A3A });
-    const cream = new THREE.MeshLambertMaterial({ color:0xf3ead8 });
-    box(4.6, 1.5, 1.7, green, 0, 1.55, 0, loco);
-    box(1.75, 2, 1.7, green, -1.35, 2.55, 0, loco);
-    box(2, .22, 1.9, cream, -1.35, 3.66, 0, loco);
-    cyl(.3, .38, 1.2, wheelM, 1.6, 2.8, 0, loco, 10);
-    cyl(.65, .65, .45, new THREE.MeshLambertMaterial({ color:0xE86A2C }), .6, 2.6, 0, loco, 12);
-    wheels(loco, [-1.5, 1.5]);
-  }
-  function wagon(color){
-    const g = new THREE.Group();
-    const m = new THREE.MeshLambertMaterial({ color });
-    box(4.05, .65, 1.8, m, 0, 1.15, 0, g);
-    box(4.05, 1.05, .16, m, 0, 1.8, .82, g);
-    box(4.05, 1.05, .16, m, 0, 1.8, -.82, g);
-    box(.16, 1.05, 1.8, m, 1.92, 1.8, 0, g);
-    box(.16, 1.05, 1.8, m, -1.92, 1.8, 0, g);
-    wheels(g, [-1.35, 1.35]);
-    return g;
-  }
-  const cars = [loco, wagon(0xE8A15C), wagon(0x8d81c4)];
+  const main = new THREE.MeshLambertMaterial({ color });
+  const cream = new THREE.MeshLambertMaterial({ color:0xf3ead8 });
+  box(4.6, 1.5, 1.7, main, 0, 1.55, 0, loco);
+  box(1.75, 2, 1.7, main, -1.35, 2.55, 0, loco);
+  box(2, .22, 1.9, cream, -1.35, 3.66, 0, loco);
+  cyl(.3, .38, 1.2, wheelM, 1.6, 2.8, 0, loco, 10);
+  cyl(.65, .65, .45, new THREE.MeshLambertMaterial({ color:0xE86A2C }), .6, 2.6, 0, loco, 12);
+  trainWheels(loco, [-1.5, 1.5]);
+  return loco;
+}
+function makeWagon(color){
+  const g = new THREE.Group();
+  const m = new THREE.MeshLambertMaterial({ color });
+  box(4.05, .65, 1.8, m, 0, 1.15, 0, g);
+  box(4.05, 1.05, .16, m, 0, 1.8, .82, g);
+  box(4.05, 1.05, .16, m, 0, 1.8, -.82, g);
+  box(.16, 1.05, 1.8, m, 1.92, 1.8, 0, g);
+  box(.16, 1.05, 1.8, m, -1.92, 1.8, 0, g);
+  trainWheels(g, [-1.35, 1.35]);
+  return g;
+}
+const smokeGeo = new THREE.SphereGeometry(1, 8, 6);
+function makeTrain(track, stops, opt){
+  const loco = makeLoco(opt.loco);
+  const cars = [loco, makeWagon(opt.wagons[0]), makeWagon(opt.wagons[1])];
   cars.forEach(c => { c.traverse(o=>{ if(o.isMesh) o.castShadow = true; }); scene.add(c); });
-  /* Asap lokomotif: gumpalan putih kecil berkala dari cerobong, membesar
-     lalu hilang; hanya saat kereta berjalan, kolam kecil (8 gumpalan). */
-  const smokeGeo = new THREE.SphereGeometry(1, 8, 6);
   const PUFFS = [];
-  for(let i = 0; i < 8; i++){
+  for(let i = 0; i < 6; i++){
     const m = new THREE.Mesh(smokeGeo,
       new THREE.MeshLambertMaterial({ color:0xffffff, transparent:true, opacity:0 }));
     m.visible = false; scene.add(m);
     PUFFS.push({ m, age: 1e9 });
   }
-  let smokeTimer = 0;
-  const chimneyTop = new THREE.Vector3();
-  let s = 0, dwell = 0;
-  const doneStops = new Set();
-  function update(dt){
-    if(dwell > 0){ dwell -= dt; }
-    else {
-      s += dt * 8.5;
-      for(const st of stopsAt){
-        const d = Math.abs(((s - st) % total + total) % total);
-        if(d < .4 && !doneStops.has(st)){ dwell = 3; doneStops.add(st); }
-        if(d > 6) doneStops.delete(st);
+  const T = { track, cars, loco, s: opt.phase || 0,
+              stopsAt: stops.map(([sx, sz])=> track.stopNear(sx, sz)),
+              doneStops: new Set(), smokeTimer: 0, PUFFS,
+              pos(){ return track.at(T.s); },
+              berhenti(){ return track.dwell > 0; } };
+  return T;
+}
+const TRACK_LUAR = makeTrack(-134, 134, -101, 101, 9);
+const TRACK_TENGAH = makeTrack(-45.5, 39, -45.5, 45.5, 7);
+const ALL_TRAINS = [
+  makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
+    { loco:0x4E7A3A, wagons:[0xE8A15C, 0x8d81c4], phase: 0 }),
+  makeTrain(TRACK_LUAR, [[17, 101], [134, -63], [-134, -24]],
+    { loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: TRACK_LUAR.total / 2 }),
+  makeTrain(TRACK_TENGAH, [[-16, 45.5], [-45.5, 25], [10, -45.5]],
+    { loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: TRACK_TENGAH.total * .35 }),
+];
+window.ZOO_TRAINS = ALL_TRAINS;
+const chimneyTop = new THREE.Vector3();
+const TRAINS = {
+  update(dt){
+    for(const tr of [TRACK_LUAR, TRACK_TENGAH]) if(tr.dwell > 0) tr.dwell -= dt;
+    for(const T of ALL_TRAINS){
+      const track = T.track;
+      if(track.dwell <= 0){
+        T.s += dt * 8.5;
+        for(const st of T.stopsAt){
+          const d = Math.abs(((T.s - st) % track.total + track.total) % track.total);
+          if(d < .4 && !T.doneStops.has(st)){ track.dwell = 3; T.doneStops.add(st); }
+          if(d > 6) T.doneStops.delete(st);
+        }
       }
-    }
-    cars.forEach((c, i)=>{
-      const p = at(s - i * 5.6);
-      c.position.set(p.x, 0, p.z);
-      c.rotation.y = p.ang - Math.PI/2;
-    });
-    if(dwell <= 0){
-      smokeTimer -= dt;
-      if(smokeTimer <= 0){
-        smokeTimer = 0.45;
-        const p = PUFFS.find(p=>!p.m.visible) || PUFFS[0];
-        loco.updateMatrixWorld();
-        chimneyTop.set(1.6, 3.5, 0); loco.localToWorld(chimneyTop);
-        p.m.position.copy(chimneyTop);
-        p.age = 0; p.m.visible = true;
+      T.cars.forEach((c, i)=>{
+        const p = track.at(T.s - i * 5.6);
+        c.position.set(p.x, 0, p.z);
+        c.rotation.y = p.ang - Math.PI/2;
+      });
+      if(track.dwell <= 0){
+        T.smokeTimer -= dt;
+        if(T.smokeTimer <= 0){
+          T.smokeTimer = .45;
+          const p = T.PUFFS.find(p=>!p.m.visible) || T.PUFFS[0];
+          T.loco.updateMatrixWorld();
+          chimneyTop.set(1.6, 3.5, 0); T.loco.localToWorld(chimneyTop);
+          p.m.position.copy(chimneyTop);
+          p.age = 0; p.m.visible = true;
+        }
       }
-    }
-    for(const p of PUFFS){
-      if(!p.m.visible) continue;
-      p.age += dt;
-      const LIFE = 2.4;
-      if(p.age >= LIFE){ p.m.visible = false; continue; }
-      const f = p.age / LIFE;
-      p.m.position.y += dt * 1.3;
-      const sc = 0.28 + f * 1.1;
-      p.m.scale.set(sc, sc, sc);
-      p.m.material.opacity = 0.55 * (1 - f);
+      for(const p of T.PUFFS){
+        if(!p.m.visible) continue;
+        p.age += dt;
+        const LIFE = 2.4;
+        if(p.age >= LIFE){ p.m.visible = false; continue; }
+        const f = p.age / LIFE;
+        p.m.position.y += dt * 1.3;
+        const sc = .28 + f * 1.1;
+        p.m.scale.set(sc, sc, sc);
+        p.m.material.opacity = .55 * (1 - f);
+      }
     }
   }
-  return { update };
-})();
+};
 
 /* Penanda zoo = papan kayu fisik yang berdiri di dunia, bukan teks melayang:
    dua tiang + papan coklat berteks cat, satu keluarga dengan papan gerbang utama.
@@ -590,6 +620,9 @@ function placeSign(s, x, z, ry = 0){
 }
 [[17,96.8,'Stasiun Gerbang',Math.PI],[130.7,-63,'Stasiun Savana',-Math.PI/2],[-130.7,-24,'Stasiun Danau',Math.PI/2]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA KELILING', lab, 3.8), x, z, ry);
+});
+[[-16,43.7,'Stasiun Edukasi',Math.PI],[-43.7,25,'Stasiun Primata',Math.PI/2],[10,-43.7,'Stasiun Nusantara',0]].forEach(([x,z,lab,ry])=>{
+  placeSign(signBoard('KERETA TENGAH', lab, 3.8), x, z, ry);
 });
 
 /* Pagar keliling kebun. Tiang-tiang pagar tidak digambar satu-satu:
@@ -804,7 +837,7 @@ function tree(x,z,s=1){
 [[-120,-88],[120,-88],[-120,88],[120,88],[-48,-60],[48,-60],[-48,60],[48,60],
  [-48,-12],[48,-12],[-48,36],[48,36],[-20,-88],[20,-88],[-70,-48],[70,48],
  [50,-84],[68,-60],[54,-32],[72,-16],[-100,-80],[-72,-62],[-116,-38],
- [-38,-70],[38,-24],[-38,70],[100,48],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
+ [-38,-70],[35,-14],[-38,70],[100,48],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
 
 /* Bunga hias di tepi jalan utama: titik-titik warna kecil di sepanjang
    sabuk jalan (satu InstancedMesh, tanpa tabrakan, tidak menghalangi jalan).
@@ -1371,6 +1404,18 @@ function drawMap(){
     else c.fillText(st[2], X(st[0]), Y(st[1]) - 8);
     c.textAlign = 'center';
   }
+  /* Jalur kereta tengah + stasiunnya */
+  c.strokeStyle = 'rgba(90,74,52,.6)'; c.lineWidth = 1.5; c.setLineDash([4, 3]);
+  c.strokeRect(X(-45.5), Y(-45.5), 84.5 * S, 91 * S);
+  c.setLineDash([]);
+  c.font = '700 8px Outfit, sans-serif'; c.textAlign = 'center';
+  for(const st of [[-16, 45.5, 'St. Edukasi'], [-45.5, 25, 'St. Primata'], [10, -45.5, 'St. Nusantara']]){
+    c.fillStyle = '#B84A39';
+    c.beginPath(); c.arc(X(st[0]), Y(st[1]), 3, 0, 7); c.fill();
+    c.strokeStyle = '#fff'; c.lineWidth = 1.2; c.stroke();
+    c.fillStyle = 'rgba(46,42,36,.8)';
+    c.fillText(st[2], X(st[0]), Y(st[1]) - 7);
+  }
   /* Penanda panggung edukasi */
   c.font = '800 9px Outfit, sans-serif';
   const pgw = c.measureText('PANGGUNG').width;
@@ -1670,7 +1715,7 @@ function tick(){
   updateCard();
   updateAnimals(t, dt);
   updateInteract(t);
-  TRAIN.update(dt);
+  TRAINS.update(dt);
   for(const n of NPCS){
     /* Saat diajak bicara, NPC berhenti berjalan dan menoleh ke pemain */
     const talking = n.chat && (t - n.chat.speakT) < 3.5;
