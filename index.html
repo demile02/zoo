@@ -182,8 +182,8 @@ const PLOTS = [
   { code:'A4', block:'Blok A · Primata', cx:-112, cz:15, w:22, d:16, ground:G_PRIMATA, use:'primata besar' },
   { code:'A5', block:'Blok A · Primata', cx:-86, cz:15, w:22, d:16, ground:G_PRIMATA, use:'primata besar lain' },
   { code:'A6', block:'Blok A · Primata', cx:-60, cz:15, w:22, d:16, ground:G_PRIMATA, use:'primata malam' },
-  { code:'B1', block:'Blok B · Savana', cx:58, cz:-72, w:44, d:36, ground:G_SAVANA, use:'herbivora besar campuran' },
-  { code:'B2', block:'Blok B · Savana', cx:92, cz:-72, w:20, d:36, ground:G_SAVANA, use:'herbivora besar kedua' },
+  { code:'B1', block:'Blok B · Savana', cx:57, cz:-72, w:42, d:36, ground:G_SAVANA, use:'herbivora besar campuran' },
+  { code:'B2', block:'Blok B · Savana', cx:92, cz:-72, w:18, d:36, ground:G_SAVANA, use:'herbivora besar kedua' },
   { code:'B3', block:'Blok B · Savana', cx:112, cz:-81, w:20, d:17, ground:G_SAVANA, use:'herbivora sedang' },
   { code:'B4', block:'Blok B · Savana', cx:112, cz:-63, w:20, d:17, ground:G_SAVANA, use:'burung savana' },
   { code:'C1', block:'Blok C · Karnivora', cx:0, cz:-86, w:68, d:8.5, ground:G_KARNI, use:'kucing besar' },
@@ -204,10 +204,10 @@ const PLOTS = [
   { code:'G2', block:'Blok G · Sentuh', cx:86, cz:61, w:20, d:11, ground:G_SEN, use:'kura-kura darat' },
   { code:'G3', block:'Blok G · Sentuh', cx:112, cz:61, w:20, d:11, ground:G_SEN, use:'hewan jinak kedua' },
   { code:'H1', block:'Blok H · Nusantara', cx:-19, cz:-33, w:34, d:17, ground:G_NUS, use:'komodo' },
-  { code:'H2', block:'Blok H · Nusantara', cx:19, cz:-33, w:34, d:17, ground:G_NUS, use:'anoa, babirusa' },
+  { code:'H2', block:'Blok H · Nusantara', cx:18.5, cz:-33, w:33, d:17, ground:G_NUS, use:'anoa, babirusa' },
   { code:'H3', block:'Blok H · Nusantara', cx:-19, cz:-15, w:34, d:17, ground:G_NUS, use:'cendrawasih, kasuari' },
-  { code:'H4', block:'Blok H · Nusantara', cx:19, cz:-15, w:34, d:17, ground:G_NUS, use:'badak, banteng' },
-  { code:'I1', block:'Blok I · Pegunungan', cx:62, cz:-24, w:44, d:36, ground:G_GUN, use:'padang pegunungan' },
+  { code:'H4', block:'Blok H · Nusantara', cx:18.5, cz:-15, w:33, d:17, ground:G_NUS, use:'badak, banteng' },
+  { code:'I1', block:'Blok I · Pegunungan', cx:61, cz:-24, w:42, d:36, ground:G_GUN, use:'padang pegunungan' },
   { code:'I2', block:'Blok I · Pegunungan', cx:106, cz:-33, w:32, d:15, ground:G_GUN, use:'panda merah' },
   { code:'I3', block:'Blok I · Pegunungan', cx:106, cz:-15, w:32, d:15, ground:G_GUN, use:'kucing pegunungan' },
 ];
@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1533';
+const BUILD = '20261105-1741';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -427,6 +427,12 @@ flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
    persilangan (tak terhindarkan di koridor yang ada) dan tidak
    pernah berbagi segmen. Versi pertama Safari (tur timur saja,
    362 unit) diganti di hari yang sama karena tidak imbang.
+   Audit layout 5 Nov sore: koridor barat diperlebar dan digeser
+   (kaki Wisata -46,5 dan -41,5, tulang Safari -44, jarak antar rel
+   2,5), celah Savana diperlebar dari petak B1/B2, radius busur
+   Safari 5,5, papan/pohon/bangku/bunga yang menyentuh sapuan
+   kereta digeser, dan sudut rel dihitung dari tali busur supaya
+   kamera penumpang tidak patah saat kereta belok.
    Rel lingkar luar persegi (Rel Keliling) dihapus atas keputusan
    Demile 5 Nov 2026: dobel dan hanya memutari peta; rel kedua diganti
    Kereta Safari yang sama-sama mengelilingi kandang.
@@ -475,15 +481,23 @@ function makeTrack(waypoints, R = 7){
     cum.push(cum[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1]));
   }
   const total = cum[cum.length - 1];
-  function at(s){
+  function posAt(s){
     s = ((s % total) + total) % total;
     let lo = 0, hi = cum.length - 1;
     while(lo < hi - 1){ const mid = (lo + hi) >> 1; if(cum[mid] <= s) lo = mid; else hi = mid; }
     const a = pts[lo % pts.length], b = pts[(lo + 1) % pts.length];
     const segLen = cum[lo + 1] - cum[lo] || 1;
     const f = (s - cum[lo]) / segLen;
-    return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f,
-             ang: Math.atan2(b[0] - a[0], b[1] - a[1]) };
+    return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f };
+  }
+  function at(s){
+    /* Sudut dari tali busur s-2,8 ke s+2,8, bukan dari segmen sampel
+       yang sedang dilewati: sudut segmen meloncat ±10° tiap titik
+       sampel di tikungan dan membuat kamera penumpang patah-patah
+       saat kereta belok. Tali busur simetris memberi arah tangen
+       yang berubah menerus. */
+    const p = posAt(s), pa = posAt(s - 2.8), pb = posAt(s + 2.8);
+    return { x: p.x, z: p.z, ang: Math.atan2(pb.x - pa.x, pb.z - pa.z) };
   }
   function nearestIdx(sx, sz){
     let best = 0, bd = 1e9;
@@ -590,20 +604,20 @@ function gambarPapanHitung(T, n){
   T.board.tex.needsUpdate = true;
 }
 const JALUR_WISATA = [
-  [-43, 53.5], [-47, 53.5], [-47, -52], [-128, -52], [-128, 95], [127, 95],
-  [127, 48], [-3, 48], [-3, 0], [38, 0], [38, -48], [127, -48],
-  [127, -93], [-43, -93], [-43, -48],
+  [-41.5, 53.5], [-46.5, 53.5], [-46.5, -52], [-128, -52], [-128, 95], [127, 95],
+  [127, 48], [-3, 48], [-3, 0], [37.5, 0], [37.5, -48], [127, -48],
+  [127, -93], [-41.5, -93], [-41.5, -48],
 ];
 const JALUR_SAFARI = [
-  [-45, 90], [-45, -99], [81, -99], [81, -50.6], [87, -50.6], [87, -2.8],
+  [-44, 90], [-44, -99], [80.5, -99], [80.5, -50.6], [87, -50.6], [87, -2.8],
   [-87.5, -2.8], [-87.5, -48], [-133, -48], [-133, 71], [-4, 71], [-4, 90],
 ];
 const TRACK_WISATA = makeTrack(JALUR_WISATA, 7);
-const TRACK_SAFARI = makeTrack(JALUR_SAFARI, 7);
+const TRACK_SAFARI = makeTrack(JALUR_SAFARI, 5.5);
 const ALL_TRAINS = [
-  makeTrain(TRACK_WISATA, [[-47, 10], [-128, -24], [-43, -70], [110, -48], [10, 48]],
+  makeTrain(TRACK_WISATA, [[-46.5, 10], [-128, -24], [-41.5, -70], [110, -48], [10, 48]],
     { nama:'wisata', loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: 60 }),
-  makeTrain(TRACK_SAFARI, [[-16, -99], [81, -72], [87, -24], [-87.5, -24], [-45, 24], [-20, 71]],
+  makeTrain(TRACK_SAFARI, [[-16, -99], [80.5, -72], [87, -24], [-87.5, -24], [-44, 24], [-20, 71]],
     { nama:'safari', loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: 95 }),
 ];
 window.ZOO_TRAINS = ALL_TRAINS;
@@ -934,10 +948,10 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-[[-16,-101.7,'Stasiun Karnivora',0],[84.3,-72,'Stasiun Savana',-Math.PI/2],[90.5,-24,'Stasiun Pegunungan',-Math.PI/2],[-90.8,-31,'Stasiun Zona Air',Math.PI/2],[-48.3,24,'Stasiun Primata',Math.PI/2],[-20,74.3,'Stasiun Plaza',Math.PI]].forEach(([x,z,lab,ry])=>{
+[[-16,-101.7,'Stasiun Karnivora',0],[77.7,-72,'Stasiun Savana',Math.PI/2],[90.5,-24,'Stasiun Pegunungan',-Math.PI/2],[-90.8,-31,'Stasiun Zona Air',Math.PI/2],[-49.2,24,'Stasiun Primata',Math.PI/2],[-20,74.3,'Stasiun Plaza',Math.PI]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA SAFARI', lab, 3.8), x, z, ry);
 });
-[[-50.5,10,'Stasiun Primata',Math.PI/2],[-124.5,-24,'Stasiun Danau',-Math.PI/2],[-39.7,-70,'Stasiun Karnivora',-Math.PI/2],[110,-44.7,'Stasiun Savana',0],[10,44.7,'Stasiun Edukasi',Math.PI]].forEach(([x,z,lab,ry])=>{
+[[-50.5,10,'Stasiun Primata',Math.PI/2],[-124.5,-24,'Stasiun Danau',-Math.PI/2],[-38.2,-70,'Stasiun Karnivora',-Math.PI/2],[110,-44.7,'Stasiun Savana',0],[10,44.7,'Stasiun Edukasi',Math.PI]].forEach(([x,z,lab,ry])=>{
   placeSign(signBoard('KERETA WISATA', lab, 3.8), x, z, ry);
 });
 
@@ -1006,12 +1020,23 @@ const POST_A = [], POST_B = [];
   placeSign({ w:10, h:3, cy:2.6, tex:new THREE.CanvasTexture(cv) }, 24, 80, 0);
 }
 
-/* Warna dasar tiap blok + papan nama blok di tepi jalan */
+/* Warna dasar tiap blok + papan nama blok di tepi jalan.
+   Lima papan digeser khusus (audit layout 5 Nov): posisi bawaannya
+   menyentuh sapuan kereta (Zona Air dan Pegunungan tertembus rel
+   Safari, Edukasi menyentuh rel Wisata, Cadangan dan Savana ketat). */
+const PAPAN_BLOK_KHUSUS = {
+  'BLOK D · ZONA AIR': [-70, -6.2],
+  'BLOK I · PEGUNUNGAN': [66, -5.2],
+  'AREA EDUKASI': [3, 41.8],
+  'LAHAN CADANGAN': [-86, -55.2],
+  'BLOK B · SAVANA': [86, -55],
+};
 for(const b of BLOCKS){
   flatRect(b.cx, b.cz, b.w, b.d, b.tint, .012);
   const sign = signBoard('KEBUN BINATANG KOMEN', b.label, 6, 1.7, 2.3);
-  const sx = b.cx;
-  const sz = b.cz > 60 ? b.cz - b.d/2 + 2.2 : b.cz + b.d/2 - 2.2;
+  const ov = PAPAN_BLOK_KHUSUS[b.label];
+  const sx = ov ? ov[0] : b.cx;
+  const sz = ov ? ov[1] : (b.cz > 60 ? b.cz - b.d/2 + 2.2 : b.cz + b.d/2 - 2.2);
   placeSign(sign, sx, sz, b.cz > 60 ? Math.PI : 0);
 }
 
@@ -1041,7 +1066,9 @@ function fencePlot(p){
   collideBox(x0, p.cz, .9, p.d + .9, 1.15);
   collideBox(x1, p.cz, .9, p.d + .9, 1.15);
   const label = p.animal ? p.animal.name : 'Kosong';
-  placeSign(signBoard(p.code, label), p.cx, z1 + 1.5, 0);
+  /* 0,7 (bukan 1,5): papan menempel pagar supaya tidak menjorok ke
+     sapuan kereta di koridor sempit (audit layout 5 Nov). */
+  placeSign(signBoard(p.code, label), p.cx, z1 + .7, 0);
 }
 PLOTS.forEach(fencePlot);
 
@@ -1139,7 +1166,13 @@ PLOTS.forEach(p=>{
 for(const b of BUILDINGS){
   const wg = new THREE.BoxGeometry(b.w, 4.6, b.d); wg.translate(b.cx, 2.3, b.cz); WALL_GEOS.push(wg);
   const rg = new THREE.BoxGeometry(b.w+.8, .5, b.d+.8); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
-  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), b.cx + b.w/2 + 1, b.cz + b.d/2 - .6, -.35);
+  /* Mushola dan Akuarium digeser khusus (audit layout 5 Nov): papan
+     sisi timurnya menjorok ke rel Safari (plaza) dan rel Wisata
+     (koridor barat). */
+  let bsx = b.cx + b.w/2 + 1, bsz = b.cz + b.d/2 - .6;
+  if(b.label === 'Mushola') bsx = b.cx - b.w/2 - 1;
+  if(b.label === 'Akuarium'){ bsx = b.cx; bsz = b.cz + b.d/2 + 1.5; }
+  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), bsx, bsz, -.35);
   collideBox(b.cx, b.cz, b.w, b.d);
 }
 
@@ -1151,9 +1184,9 @@ function tree(x,z,s=1){
   colliders.push({ x, z, r:1.1*s });
 }
 [[-120,-88],[120,-88],[-120,88],[120,88],[-48,-60],[48,-60],[-48,60],[48,60],
- [-48,-12],[48,-12],[-48,36],[48,36],[-20,-88],[20,-88],[-70,-48],[70,48],
+ [-38.5,-12],[48,-12],[-38.5,36],[48,36],[-20,-88],[20,-88],[-70,-48],[58,50.5],
  [50,-84],[68,-60],[54,-32],[72,-16],[-100,-80],[-72,-62],[-116,-38],
- [-38,-70],[35,-14],[-38,70],[100,48],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
+ [-38,-70],[35,-14],[-38,64],[112,50.5],[-70,88],[24,88]].forEach((p,i)=>tree(p[0],p[1], .9+(i%4)*.15));
 
 /* Bunga hias di tepi jalan utama: titik-titik warna kecil di sepanjang
    sabuk jalan (satu InstancedMesh, tanpa tabrakan, tidak menghalangi jalan).
@@ -1172,7 +1205,9 @@ function tree(x,z,s=1){
     }
   };
   for(const z of [-48, 0, 48]){ along(-120, z, 120, z, 1); along(-120, z, 120, z, -1); }
-  for(const x of [-43, 43]){ along(x, -84, x, 84, 1); along(x, -84, x, 84, -1); }
+  for(const x of [43]){ along(x, -84, x, 84, 1); along(x, -84, x, 84, -1); }
+  /* Garis bunga x=-43 dicabut: koridor barat kini ditempati tiga rel
+     berdampingan, bunganya jatuh tepat di garis rel Safari. */
   const COLORS = [0xE86A9C, 0xE8D27A, 0xFDFCF8, 0xE86A2C, 0x8D81C4];
   const geo = new THREE.SphereGeometry(.22, 6, 5);
   const mat = new THREE.MeshLambertMaterial({ color:0xffffff });
@@ -1728,7 +1763,7 @@ function drawMap(){
   c.closePath(); c.stroke();
   c.setLineDash([]);
   c.font = '700 8px Outfit, sans-serif'; c.textAlign = 'center';
-  for(const st of [[-16, -99, 'St. Karnivora', 13], [81, -72, 'St. Savana', -7], [87, -24, 'St. Pegunungan', -7], [-87.5, -24, 'St. Zona Air', 13], [-45, 24, 'St. Primata', -7], [-20, 71, 'St. Plaza', -7]]){
+  for(const st of [[-16, -99, 'St. Karnivora', 13], [80.5, -72, 'St. Savana', -7], [87, -24, 'St. Pegunungan', -7], [-87.5, -24, 'St. Zona Air', 13], [-44, 24, 'St. Primata', -7], [-20, 71, 'St. Plaza', -7]]){
     const sp = TRACK_SAFARI.stopPoint(st[0], st[1]);
     c.fillStyle = '#2E6E8E';
     c.beginPath(); c.arc(X(sp.x), Y(sp.z), 3, 0, 7); c.fill();
@@ -1743,7 +1778,7 @@ function drawMap(){
   c.closePath(); c.stroke();
   c.setLineDash([]);
   c.font = '700 8px Outfit, sans-serif'; c.textAlign = 'center';
-  for(const st of [[-47, 10, 'St. Primata', -7], [-128, -24, 'St. Danau', 13], [-43, -70, 'St. Karnivora', -7], [110, -48, 'St. Savana', -7], [10, 48, 'St. Edukasi', -7]]){
+  for(const st of [[-46.5, 10, 'St. Primata', -7], [-128, -24, 'St. Danau', 13], [-41.5, -70, 'St. Karnivora', -7], [110, -48, 'St. Savana', -7], [10, 48, 'St. Edukasi', -7]]){
     const sp = TRACK_WISATA.stopPoint(st[0], st[1]);
     c.fillStyle = '#B84A39';
     c.beginPath(); c.arc(X(sp.x), Y(sp.z), 3, 0, 7); c.fill();
@@ -1923,10 +1958,10 @@ function bench(x, z, ry){
   const bd = 2.2 * Math.abs(Math.sin(ry)) + .6 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-bench(-20, 72, 0);
+bench(-24.5, 73.5, 0);
 bench(-28, 62, Math.PI / 2);
-bench(-88, -24, -Math.PI / 2);
-bench(-88, -38, -Math.PI / 2);
+bench(-89.4, -24, -Math.PI / 2);
+bench(-89.4, -38, -Math.PI / 2);
 
 /* Gabung semua geometri statis per material menjadi satu mesh per kelompok */
 function mergeInto(list, mat){
