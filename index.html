@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0952';
+const BUILD = '20261105-1018';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -751,7 +751,7 @@ PLOTS.forEach(p=>{
   const pond = new THREE.Mesh(new THREE.CircleGeometry(11, 28), MAT.water);
   pond.rotation.x = -Math.PI/2; pond.position.set(-102,.03,-24);
   pond.receiveShadow = true; scene.add(pond);
-  collideBox(-102, -24, 23, 23);
+  colliders.push({ x:-102, z:-24, r:11.4 });
 
   const dome = new THREE.Mesh(
     new THREE.SphereGeometry(12.5, 18, 10, 0, Math.PI*2, 0, Math.PI/2),
@@ -759,11 +759,11 @@ PLOTS.forEach(p=>{
   dome.position.set(56, 0, 24); scene.add(dome);
   cyl(12.6, 12.6, .5, MAT.rock, 56, .25, 24, scene, 28);
   placeSign(signBoard('E1', 'Kubah Burung'), 46.5, 37.5, -.3);
-  collideBox(56, 24, 26, 26);
+  colliders.push({ x:56, z:24, r:13 });
 
   cyl(5.5, 6.1, 1, MAT.rock, -16, .5, 14, scene, 20);
   placeSign(signBoard('PANGGUNG', 'Edukasi'), -23.5, 20.5, -.3);
-  collideBox(-16, 14, 13, 13);
+  colliders.push({ x:-16, z:14, r:6.5 });
 }
 
 /* Tembok keliling zoo, di luar garis pagar kayu: dinding krem bertopi bata,
@@ -1608,8 +1608,8 @@ function tick(){
     const speed = 17 * gait;
     let nx = visitor.position.x + mx * speed * dt;
     let nz = visitor.position.z + mz * speed * dt;
-    nx = THREE.MathUtils.clamp(nx, -126, 126);
-    nz = THREE.MathUtils.clamp(nz, -92, 92);
+    nx = THREE.MathUtils.clamp(nx, -136, 136);
+    nz = THREE.MathUtils.clamp(nz, -103, 103);
     for(const c of colliders){
       if(c.box){
         if(c.low && jumpY > c.low){
