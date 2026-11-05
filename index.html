@@ -293,7 +293,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1741';
+const BUILD = '20261105-1842';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -433,6 +433,11 @@ flatRect(0, 68, 7, 40, 0xe3cf9e, .02);
    Safari 5,5, papan/pohon/bangku/bunga yang menyentuh sapuan
    kereta digeser, dan sudut rel dihitung dari tali busur supaya
    kamera penumpang tidak patah saat kereta belok.
+   Plang stasiun diganti gapura melintasi rel (perintah Demile
+   5 Nov sore): dua tiang + balok bernama di titik berhenti,
+   kereta lewat di bawahnya; tiang digeser keluar sampai bebas
+   dari semua rel, jadi gapura koridor barat membentang lebar
+   menaungi tiga rel sekaligus.
    Rel lingkar luar persegi (Rel Keliling) dihapus atas keputusan
    Demile 5 Nov 2026: dobel dan hanya memutari peta; rel kedua diganti
    Kereta Safari yang sama-sama mengelilingi kandang.
@@ -948,11 +953,62 @@ function placeSign(s, x, z, ry = 0){
   const bd = s.w * Math.abs(Math.sin(ry)) + .18 * Math.abs(Math.cos(ry));
   collideBox(x, z, bw, bd);
 }
-[[-16,-101.7,'Stasiun Karnivora',0],[77.7,-72,'Stasiun Savana',Math.PI/2],[90.5,-24,'Stasiun Pegunungan',-Math.PI/2],[-90.8,-31,'Stasiun Zona Air',Math.PI/2],[-49.2,24,'Stasiun Primata',Math.PI/2],[-20,74.3,'Stasiun Plaza',Math.PI]].forEach(([x,z,lab,ry])=>{
-  placeSign(signBoard('KERETA SAFARI', lab, 3.8), x, z, ry);
+/* Gapura stasiun: dua tiang + balok bernama melintang TEPAT di atas
+   rel di titik berhenti, kereta lewat di bawahnya. Jarak tiang mulai
+   2,6 dari sumbu rel dan digeser keluar selangkah demi selangkah
+   sampai bebas dari SEMUA rel (koridor barat bertiga dan celah
+   Savana membuat beberapa gapura membentang lebih lebar, menaungi
+   rel tetangga sekalian). Bawah balok 4,5 — di atas atap lokomotif
+   (3,77) dan cerobongnya. Papan nama di kedua muka balok. */
+function stationGate(track, sx, sz, top, lab){
+  let bi = 0, bd = 1e9;
+  track.pts.forEach((p, i)=>{
+    const d = Math.hypot(p[0] - sx, p[1] - sz);
+    if(d < bd){ bd = d; bi = i; }
+  });
+  const C = track.pts[bi];
+  const A = track.pts[(bi + 1) % track.pts.length], B = track.pts[(bi - 1 + track.pts.length) % track.pts.length];
+  const ang = Math.atan2(A[0] - B[0], A[1] - B[1]);
+  const px = Math.cos(ang), pz = -Math.sin(ang);
+  const jauhRel = (x, z)=>{
+    let m = 1e9;
+    for(const T of [TRACK_WISATA, TRACK_SAFARI])
+      for(const p of T.pts) m = Math.min(m, Math.hypot(p[0] - x, p[1] - z));
+    return m;
+  };
+  const sisi = (sgn)=>{
+    let d = 2.6;
+    while(d < 8 && jauhRel(C[0] + px * d * sgn, C[1] + pz * d * sgn) < 2.3) d += .55;
+    return [C[0] + px * d * sgn, C[1] + pz * d * sgn];
+  };
+  const P1 = sisi(-1), P2 = sisi(1);
+  for(const [gx, gz] of [P1, P2]){
+    const g = new THREE.BoxGeometry(.42, 5.9, .42);
+    g.translate(gx, 2.95, gz); WOOD_GEOS.push(g);
+    const cap = new THREE.BoxGeometry(.66, .18, .66);
+    cap.translate(gx, 6, gz); ROOF_GEOS.push(cap);
+    collideBox(gx, gz, .7, .7);
+  }
+  const mx = (P1[0] + P2[0]) / 2, mz = (P1[1] + P2[1]) / 2;
+  const len = Math.hypot(P2[0] - P1[0], P2[1] - P1[1]) + .9;
+  const beam = new THREE.BoxGeometry(len, 1.3, .34);
+  beam.rotateY(ang); beam.translate(mx, 5.15, mz);
+  WOOD_GEOS.push(beam);
+  const sb = signBoard(top, lab, 4.4, 1.3);
+  const fx = Math.sin(ang), fz = Math.cos(ang);
+  for(const sgn of [1, -1]){
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(4.28, 1.18),
+      new THREE.MeshBasicMaterial({ map: sb.tex }));
+    face.position.set(C[0] + fx * .19 * sgn, 5.15, C[1] + fz * .19 * sgn);
+    face.rotation.y = sgn > 0 ? ang : ang + Math.PI;
+    scene.add(face);
+  }
+}
+[[-16,-99,'Stasiun Karnivora'],[80.5,-72,'Stasiun Savana'],[87,-24,'Stasiun Pegunungan'],[-87.5,-24,'Stasiun Zona Air'],[-44,24,'Stasiun Primata'],[-20,71,'Stasiun Plaza']].forEach(([x,z,lab])=>{
+  stationGate(TRACK_SAFARI, x, z, 'KERETA SAFARI', lab);
 });
-[[-50.5,10,'Stasiun Primata',Math.PI/2],[-124.5,-24,'Stasiun Danau',-Math.PI/2],[-38.2,-70,'Stasiun Karnivora',-Math.PI/2],[110,-44.7,'Stasiun Savana',0],[10,44.7,'Stasiun Edukasi',Math.PI]].forEach(([x,z,lab,ry])=>{
-  placeSign(signBoard('KERETA WISATA', lab, 3.8), x, z, ry);
+[[-46.5,10,'Stasiun Primata'],[-128,-24,'Stasiun Danau'],[-41.5,-70,'Stasiun Karnivora'],[110,-48,'Stasiun Savana'],[10,48,'Stasiun Edukasi']].forEach(([x,z,lab])=>{
+  stationGate(TRACK_WISATA, x, z, 'KERETA WISATA', lab);
 });
 
 /* Pagar keliling kebun. Tiang-tiang pagar tidak digambar satu-satu:
@@ -1162,18 +1218,175 @@ PLOTS.forEach(p=>{
     cyl(1, 1.25, 5.6, MAT.rock, x, 2.8, z, scene, 10);
 }
 
-/* Bangunan fasilitas: dinding krem + atap coklat bata + papan nama */
-for(const b of BUILDINGS){
+/* Bangunan fasilitas dibentuk mengikuti fungsinya (perintah Demile
+   5 Nov): mushola berkubah hijau + menara, akuarium berbalut kaca
+   biru, loket berjendela konter, food court saung terbuka berisi
+   meja, area bermain berisi wahana, papan direktur berupa papan
+   pengumuman besar. Jejak kaki (cx, cz, w, d) tidak berubah dari
+   denah, jadi tabrakan dan posisi papan nama tetap. */
+const MAT_KACA = new THREE.MeshLambertMaterial({ color:0x9fd4e8, transparent:true, opacity:.75 });
+const MAT_KUBAH = new THREE.MeshLambertMaterial({ color:0x2f9e6e });
+const MAT_EMAS = new THREE.MeshLambertMaterial({ color:0xd9a441 });
+const MAT_MERAH = new THREE.MeshLambertMaterial({ color:0xc0392b });
+const MAT_PUTIH = new THREE.MeshLambertMaterial({ color:0xfdfcf8 });
+const MAT_PINTU = new THREE.MeshLambertMaterial({ color:0x4a3826 });
+
+function dasarBangunan(b){
   const wg = new THREE.BoxGeometry(b.w, 4.6, b.d); wg.translate(b.cx, 2.3, b.cz); WALL_GEOS.push(wg);
-  const rg = new THREE.BoxGeometry(b.w+.8, .5, b.d+.8); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
+  const rg = new THREE.BoxGeometry(b.w + .8, .5, b.d + .8); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
+}
+function pintu(b, dx = 0, w = 1.5){
+  box(w, 2.7, .12, MAT_PINTU, b.cx + dx, 1.35, b.cz + b.d/2 + .03);
+}
+function hiasMushola(b){
+  const kub = new THREE.Mesh(new THREE.SphereGeometry(2.3, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT_KUBAH);
+  kub.position.set(b.cx, 5.1, b.cz); kub.castShadow = true; scene.add(kub);
+  cyl(.09, .09, .9, MAT_EMAS, b.cx, 7.85, b.cz, scene, 8);
+  const bulan = new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 8), MAT_EMAS);
+  bulan.position.set(b.cx, 8.45, b.cz); bulan.castShadow = true; scene.add(bulan);
+  const mx = b.cx + b.w/2 - 1.1, mz = b.cz - b.d/2 + 1.1;
+  cyl(.5, .62, 9.4, MAT.wall, mx, 4.7, mz, scene, 10);
+  cyl(.8, .8, .3, MAT_KUBAH, mx, 7.7, mz, scene, 10);
+  const atapM = new THREE.Mesh(new THREE.ConeGeometry(.88, 1.7, 10), MAT_KUBAH);
+  atapM.position.set(mx, 10.35, mz); atapM.castShadow = true; scene.add(atapM);
+  pintu(b);
+}
+function hiasAkuarium(b){
+  const band = box(b.w + .16, 1.7, b.d + .16, MAT_KACA, b.cx, 3.5, b.cz);
+  band.castShadow = false;
+  box(b.w + .22, .5, b.d + .22, MAT.water, b.cx, 2.5, b.cz);
+  const j = cyl(1, 1, .14, MAT_KACA, b.cx, 2.6, b.cz + b.d/2 + .12, scene, 20);
+  j.rotation.x = Math.PI / 2; j.castShadow = false;
+}
+function hiasLoket(b){
+  const k = box(5.4, 1.5, .14, MAT_KACA, b.cx, 2.5, b.cz + b.d/2 + .03);
+  k.castShadow = false;
+  for(const dx of [-1.8, 0, 1.8]) box(.14, 1.5, .16, MAT.woodD, b.cx + dx, 2.5, b.cz + b.d/2 + .04);
+  const a = box(6.4, .14, 1.6, MAT.roof, b.cx, 3.6, b.cz + b.d/2 + .8);
+  a.rotation.x = -.18;
+  pintu(b, -3.9, 1.2);
+}
+function hiasKantor(b){
+  for(const s of [-1, 1]){
+    const s1 = box(b.w / 2 + .7, .16, b.d + 1, MAT.roof, b.cx + s * (b.w / 4 - .1), 5.8, b.cz);
+    s1.rotation.z = -s * .24;
+  }
+  box(5.6, .16, 1.8, MAT.roof, b.cx, 3.3, b.cz + b.d/2 + .9);
+  for(const dx of [-2.6, 2.6]){
+    const t = new THREE.BoxGeometry(.18, 3.3, .18); t.translate(b.cx + dx, 1.65, b.cz + b.d/2 + 1.6); WOOD_GEOS.push(t);
+  }
+  pintu(b, 0, 1.7);
+}
+function hiasKlinik(b){
+  box(1.7, 1.7, .12, MAT_MERAH, b.cx, 3.4, b.cz + b.d/2 + .03);
+  box(1.15, .36, .14, MAT_PUTIH, b.cx, 3.4, b.cz + b.d/2 + .04);
+  box(.36, 1.15, .14, MAT_PUTIH, b.cx, 3.4, b.cz + b.d/2 + .04);
+  pintu(b, -3.5);
+}
+function hiasKarantina(b){
+  for(let i = 0; i < 7; i++) box(.16, 2.2, .1, MAT.rail, b.cx - 3.6 + i * 1.2, 2.6, b.cz + b.d/2 + .03);
+  box(8.6, .3, .12, MAT.rail, b.cx, 3.75, b.cz + b.d/2 + .03);
+  box(8.6, .3, .12, MAT.rail, b.cx, 1.45, b.cz + b.d/2 + .03);
+  pintu(b, 5.5, 1.3);
+}
+function hiasDapur(b){
+  const c = new THREE.BoxGeometry(.9, 2.4, .9); c.translate(b.cx - b.w/2 + 2, 6.1, b.cz - 1); ROCK_GEOS.push(c);
+  pintu(b, 2.5);
+  for(const [dx, dz, s] of [[4.6, .9, 1], [5.5, .7, .8]]){
+    const k = new THREE.Mesh(new THREE.SphereGeometry(.55 * s, 8, 6), MAT.leaf2);
+    k.scale.y = .75; k.position.set(b.cx + dx, .42 * s, b.cz + b.d/2 + dz); k.castShadow = true; scene.add(k);
+  }
+}
+function hiasGudang(b){
+  box(4.4, 3.4, .14, MAT.rail, b.cx, 1.9, b.cz + b.d/2 + .03);
+  for(const y of [1, 1.9, 2.8]) box(4.4, .1, .16, MAT.woodD, b.cx, y, b.cz + b.d/2 + .04);
+}
+function hiasSuvenir(b){
+  const k = box(5.6, 1.6, .14, MAT_KACA, b.cx - .8, 2.3, b.cz + b.d/2 + .03);
+  k.castShadow = false;
+  for(let i = 0; i < 5; i++){
+    const s = box(1.5, .12, 1.7, i % 2 ? MAT_PUTIH : MAT.roof, b.cx - 3.4 + i * 1.5, 3.5, b.cz + b.d/2 + .85);
+    s.rotation.x = -.22;
+  }
+  pintu(b, 3.1, 1.2);
+}
+function hiasWC(b){
+  pintu(b, -1.6, 1.1); pintu(b, 1.6, 1.1);
+  cyl(.85, .85, 1.3, MAT.water, b.cx + b.w/2 - 1.2, 5.85, b.cz - b.d/2 + 1.2, scene, 12);
+  cyl(.07, .07, 1.1, MAT.rail, b.cx - b.w/2 + 1, 5.65, b.cz, scene, 6);
+}
+function bangunFoodCourt(b){
+  const rg = new THREE.BoxGeometry(b.w + 1, .5, b.d + 2.4); rg.translate(b.cx, 4.85, b.cz); ROOF_GEOS.push(rg);
+  for(const dx of [-b.w/2 + 1, 0, b.w/2 - 1]) for(const dz of [-b.d/2 + .8, b.d/2 - .8]){
+    const t = new THREE.BoxGeometry(.24, 4.6, .24); t.translate(b.cx + dx, 2.3, b.cz + dz); WOOD_GEOS.push(t);
+    collideBox(b.cx + dx, b.cz + dz, .3, .3);
+  }
+  box(b.w - 3, 2.2, 1.1, MAT.wall, b.cx, 1.1, b.cz - b.d/2 + 1.1);
+  collideBox(b.cx, b.cz - b.d/2 + 1.1, b.w - 3, 1.1);
+  for(const dx of [-6, 0, 6]){
+    box(2.6, .12, 1.2, MAT.wood, b.cx + dx, 1.05, b.cz + .6);
+    box(.15, .95, .9, MAT.woodD, b.cx + dx - 1, .5, b.cz + .6);
+    box(.15, .95, .9, MAT.woodD, b.cx + dx + 1, .5, b.cz + .6);
+    box(2.6, .1, .4, MAT.wood, b.cx + dx, .55, b.cz - .05);
+    box(2.6, .1, .4, MAT.wood, b.cx + dx, .55, b.cz + 1.25);
+    collideBox(b.cx + dx, b.cz + .6, 2.6, 1.6);
+  }
+}
+function bangunPlayground(b){
+  flatRect(b.cx, b.cz, b.w, b.d, 0xe8d9ae, .02);
+  const px = b.cx - 5, pz = b.cz;
+  const luncur = box(.9, .12, 3.6, MAT_MERAH, px, 1.15, pz + .6);
+  luncur.rotation.x = .5;
+  box(1.1, 2.2, 1.1, MAT.water, px, 1.1, pz - 1.2);
+  collideBox(px, pz - 1.2, 1.2, 1.2);
+  const ax = b.cx + 4.5;
+  for(const dz of [-1.9, 1.9]){
+    const t = box(.14, 2.6, .14, MAT.woodD, ax, 1.3, b.cz + dz);
+    t.rotation.x = dz > 0 ? .3 : -.3;
+  }
+  box(.14, .14, 4.4, MAT.woodD, ax, 2.62, b.cz);
+  for(const dz of [-1, 1]){
+    box(.04, 1.6, .04, MAT.rail, ax - .35, 1.8, b.cz + dz);
+    box(.04, 1.6, .04, MAT.rail, ax + .35, 1.8, b.cz + dz);
+    box(.9, .08, .45, MAT.roof, ax, .95, b.cz + dz);
+    collideBox(ax, b.cz + dz, .7, .6);
+  }
+  const qx = b.cx + .5, qz = b.cz + 1.8;
+  cyl(1.3, 1.3, .18, MAT_EMAS, qx, .55, qz, scene, 14);
+  cyl(.09, .09, .6, MAT.rail, qx, .3, qz, scene, 8);
+  collideBox(qx, qz, 2.4, 2.4);
+}
+function bangunPapanDirektur(b){
+  const atap = new THREE.BoxGeometry(b.w + .8, .18, 1.1); atap.translate(b.cx, 4.5, b.cz); ROOF_GEOS.push(atap);
+  placeSign(signBoard('KEBUN BINATANG KOMEN', 'Papan Pengumuman Direktur', b.w - 1, 2.2, 3.35), b.cx, b.cz, 0);
+}
+for(const b of BUILDINGS){
+  if(b.label === 'Area piknik + food court') bangunFoodCourt(b);
+  else if(b.label === 'Area bermain anak') bangunPlayground(b);
+  else if(b.label === 'Papan direktur') bangunPapanDirektur(b);
+  else {
+    dasarBangunan(b);
+    if(b.label === 'Mushola') hiasMushola(b);
+    else if(b.label === 'Akuarium'){ hiasAkuarium(b); box(b.w + .9, .52, b.d + .9, MAT.water, b.cx, 4.87, b.cz); }
+    else if(b.label === 'Loket') hiasLoket(b);
+    else if(b.label === 'Kantor direktur') hiasKantor(b);
+    else if(b.label === 'Klinik hewan') hiasKlinik(b);
+    else if(b.label === 'Karantina') hiasKarantina(b);
+    else if(b.label === 'Dapur pakan') hiasDapur(b);
+    else if(b.label === 'Gudang') hiasGudang(b);
+    else if(b.label === 'Suvenir') hiasSuvenir(b);
+    else if(b.label === 'WC') hiasWC(b);
+    collideBox(b.cx, b.cz, b.w, b.d);
+  }
   /* Mushola dan Akuarium digeser khusus (audit layout 5 Nov): papan
      sisi timurnya menjorok ke rel Safari (plaza) dan rel Wisata
      (koridor barat). */
-  let bsx = b.cx + b.w/2 + 1, bsz = b.cz + b.d/2 - .6;
-  if(b.label === 'Mushola') bsx = b.cx - b.w/2 - 1;
-  if(b.label === 'Akuarium'){ bsx = b.cx; bsz = b.cz + b.d/2 + 1.5; }
-  placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), bsx, bsz, -.35);
-  collideBox(b.cx, b.cz, b.w, b.d);
+  if(b.label !== 'Papan direktur'){
+    let bsx = b.cx + b.w/2 + 1, bsz = b.cz + b.d/2 - .6;
+    if(b.label === 'Mushola') bsx = b.cx - b.w/2 - 1;
+    if(b.label === 'Akuarium'){ bsx = b.cx; bsz = b.cz + b.d/2 + 1.5; }
+    placeSign(signBoard(b.tag || 'FASILITAS', b.label, 3.2, 1.2, 2.2), bsx, bsz, -.35);
+  }
 }
 
 /* Pohon di sepanjang jalan dan di dalam petak besar */
@@ -1960,7 +2173,7 @@ function bench(x, z, ry){
 }
 bench(-24.5, 73.5, 0);
 bench(-28, 62, Math.PI / 2);
-bench(-89.4, -24, -Math.PI / 2);
+bench(-89.4, -19.5, -Math.PI / 2);
 bench(-89.4, -38, -Math.PI / 2);
 
 /* Gabung semua geometri statis per material menjadi satu mesh per kelompok */
