@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-0546';
+const BUILD = '20261105-0752';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -1305,6 +1305,11 @@ function drawMap(){
     c.fillStyle = 'rgba(46,42,36,.8)';
     c.font = '700 10px Outfit, sans-serif'; c.textAlign = 'center';
     c.fillText(p.code, X(p.cx), Y(p.cz) + 3.5);
+    if(p.animal){
+      c.fillStyle = 'rgba(46,42,36,.65)';
+      c.font = '600 8.5px Outfit, sans-serif';
+      c.fillText(p.animal.name, X(p.cx), Y(p.cz) + 13.5);
+    }
   }
   /* Label nama blok di denah: hanya blok berhuruf A–I, rata kiri di
      tepi atas area bloknya, dengan pil latar supaya terbaca di atas
@@ -1320,6 +1325,25 @@ function drawMap(){
     c.fillStyle = '#2E2A24';
     c.fillText(txt, lx, ly);
   }
+  /* Jalur kereta keliling + stasiunnya */
+  c.strokeStyle = 'rgba(90,74,52,.75)'; c.lineWidth = 2; c.setLineDash([6, 4]);
+  c.strokeRect(X(-114), Y(-84), 228 * S, 168 * S);
+  c.setLineDash([]);
+  c.font = '700 8.5px Outfit, sans-serif'; c.textAlign = 'center';
+  for(const st of [[17, 84, 'Stasiun Gerbang'], [114, -40, 'Stasiun Savana'], [-114, -6, 'Stasiun Danau']]){
+    c.fillStyle = '#8a5a2b';
+    c.beginPath(); c.arc(X(st[0]), Y(st[1]), 4, 0, 7); c.fill();
+    c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.stroke();
+    c.fillStyle = 'rgba(46,42,36,.8)';
+    c.fillText(st[2], X(st[0]), Y(st[1]) - 8);
+  }
+  /* Penanda panggung edukasi */
+  c.font = '800 9px Outfit, sans-serif';
+  const pgw = c.measureText('PANGGUNG').width;
+  c.fillStyle = 'rgba(253,252,248,.88)';
+  c.fillRect(X(-16) - pgw/2 - 4, Y(14) - 9, pgw + 8, 12);
+  c.fillStyle = '#2E2A24'; c.textAlign = 'center';
+  c.fillText('PANGGUNG', X(-16), Y(14) + 2);
   c.strokeStyle = '#f3ead8'; c.lineWidth = 5;
   c.strokeRect(X(-131), Y(-97), 262 * S, 194 * S);
   c.fillStyle = '#2E2A24'; c.font = '800 11px Outfit, sans-serif'; c.textAlign = 'center';
@@ -1332,6 +1356,20 @@ function drawMap(){
   c.fillStyle = '#6F66A3';
   c.beginPath(); c.arc(px, py, 7, 0, 7); c.fill();
   c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.stroke();
+  /* Legenda posisi pemain + panah utara */
+  c.font = '700 9.5px Outfit, sans-serif'; c.textAlign = 'left';
+  const lgx = X(-128), lgy = Y(97) - 10;
+  c.fillStyle = 'rgba(253,252,248,.88)';
+  c.fillRect(lgx - 5, lgy - 10, 108, 14);
+  c.fillStyle = '#6F66A3';
+  c.beginPath(); c.arc(lgx + 4, lgy - 3, 4, 0, 7); c.fill();
+  c.fillStyle = '#2E2A24';
+  c.fillText('= kamu di sini', lgx + 12, lgy);
+  c.font = '800 12px Outfit, sans-serif'; c.textAlign = 'center';
+  c.fillStyle = '#2E2A24';
+  c.fillText('▲', W - 20, 20);
+  c.font = '800 10px Outfit, sans-serif';
+  c.fillText('U', W - 20, 33);
 }
 function setMap(open){
   mapOverlay.classList.toggle('show', open);
