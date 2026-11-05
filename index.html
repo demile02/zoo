@@ -290,7 +290,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-1205';
+const BUILD = '20261105-1226';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -567,6 +567,8 @@ const ALL_TRAINS = [
     { loco:0xE86A2C, wagons:[0x4E7A3A, 0xE8D27A], phase: 60 }),
 ];
 window.ZOO_TRAINS = ALL_TRAINS;
+/* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun bergantian */
+const LAMA_BERHENTI = 15;
 const chimneyTop = new THREE.Vector3();
 const TRAINS = {
   update(dt){
@@ -577,7 +579,7 @@ const TRAINS = {
         T.s += dt * 8.5;
         for(const st of T.stopsAt){
           const d = Math.abs(((T.s - st) % track.total + track.total) % track.total);
-          if(d < .4 && !T.doneStops.has(st)){ track.dwell = 3; T.doneStops.add(st); }
+          if(d < .4 && !T.doneStops.has(st)){ track.dwell = LAMA_BERHENTI; T.doneStops.add(st); }
           if(d > 6) T.doneStops.delete(st);
         }
       }
