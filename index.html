@@ -355,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1705';
-/* BUILD 20261106-1705 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1830';
+/* BUILD 20261106-1830 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -2592,13 +2592,21 @@ function terimaPosisi(pl){
   if(!pl || pl.id === IDENTITAS.id) return;
   let e = REMOTES.get(pl.id);
   if(!e) e = buatAvatarJauh(pl.id, pl);
-  e.target = { x: pl.x, z: pl.z, h: pl.h, y: pl.y || 0, mv: pl.mv || 0 };
+  /* Riwayat dua titik + stempel waktu kedatangan: avatar jauh digerakkan
+     dengan EKSTRAPOLASI VEKTOR (menembak posisi 'sekarang' dari dua titik
+     terakhir), bukan lerp mengejar titik terakhir — lerp lama membuat
+     pemain lain tampak melompat tersendat (laporan Demile 6 Nov sore:
+     di HP naik kereta, di PC avatarnya mengambang/tersendat). */
+  const now = performance.now();
+  const titik = { x: pl.x, z: pl.z, h: pl.h, y: pl.y || 0, mv: pl.mv || 0, t: now, naik: pl.naik || '' };
+  e.dari = e.ke || titik;
+  e.ke = titik;
   if(!e.pertama){
     e.p.group.position.set(pl.x, pl.y || 0, pl.z);
     e.p.group.rotation.y = pl.h;
     e.pertama = true;
   }
-  e.last = performance.now();
+  e.last = now;
 }
 function hariKe(){
   const mulai = new Date(TANGGAL_MULAI + 'T00:00:00');
@@ -2640,7 +2648,7 @@ function mpTick(dt){
     const now = performance.now();
     const x = visitor.position.x, z = visitor.position.z;
     const bergerak = Math.hypot(x - mpX, z - mpZ) > .08 || Math.abs(heading - mpH) > .03;
-    if((bergerak && now - mpKirim > 140) || now - mpKirim > 900){
+    if((bergerak && now - mpKirim > 100) || now - mpKirim > 900){
       let mv = 0;
       if(mpPX !== null && dt > 0) mv = Math.min(1, Math.hypot(x - mpPX, z - mpPZ) / dt / 17);
       if(naik) mv = 0;
@@ -2648,24 +2656,41 @@ function mpTick(dt){
         id: IDENTITAS.id, nama: IDENTITAS.nama || 'Pengunjung', warna: IDENTITAS.warna,
         x: +x.toFixed(2), z: +z.toFixed(2), h: +heading.toFixed(3),
         y: +visitor.position.y.toFixed(2), mv: +mv.toFixed(2),
+        naik: naik ? naik.T.nama : '',
       }}).catch(()=>{});
       mpKirim = now; mpX = x; mpZ = z; mpH = heading;
     }
     mpPX = x; mpPZ = z;
   }
-  /* Gerakkan avatar pemain lain menuju sasaran terakhirnya */
-  const k = 1 - Math.pow(.0005, dt);
+  /* Gerakkan avatar pemain lain: posisi dirender = ekstrapolasi dari
+     dua paket terakhir (kecepatan × jeda sejak paket terakhir, dibatasi
+     250 md), lalu dilicinkan ringan. Penumpang kereta ditempel langsung
+     ke gerbong tengah kereta yang sama di layar ini. */
   for(const e of REMOTES.values()){
-    if(!e.target) continue;
-    const g = e.p.group, t = e.target;
-    g.position.x += (t.x - g.position.x) * k;
-    g.position.z += (t.z - g.position.z) * k;
-    g.position.y = t.y;
+    if(!e.ke) continue;
+    const g = e.p.group, a = e.dari, b = e.ke;
+    if(b.naik){
+      const T = ALL_TRAINS.find(tr => tr.nama === b.naik);
+      if(T){
+        g.position.set(T.cars[1].position.x, 1.45, T.cars[1].position.z);
+        g.rotation.y += (T.cars[1].rotation.y - g.rotation.y) * Math.min(1, dt * 8);
+      }
+    } else {
+      const span = Math.max(1, b.t - a.t);
+      let jeda = Math.min((performance.now() - b.t) / span, 1.6);
+      const vx = (b.x - a.x) / span * 1000, vz = (b.z - a.z) / span * 1000;
+      const txp = b.x + vx * (jeda * span / 1000), tzp = b.z + vz * (jeda * span / 1000);
+      const kk = 1 - Math.pow(.0000001, dt);
+      g.position.x += (txp - g.position.x) * kk;
+      g.position.z += (tzp - g.position.z) * kk;
+      g.position.y += (b.y - g.position.y) * Math.min(1, dt * 14);
+    }
+    const t = b;
     let dh = t.h - g.rotation.y;
     while(dh > Math.PI) dh -= Math.PI * 2;
     while(dh < -Math.PI) dh += Math.PI * 2;
-    g.rotation.y += dh * Math.min(1, dt * 10);
-    if(t.mv > .05){
+    if(!b.naik) g.rotation.y += dh * Math.min(1, dt * 10);
+    if(b.naik || t.mv > .05){
       e.phase += dt * (6 + 8 * t.mv);
       const s = Math.sin(e.phase);
       e.p.legL.rotation.x = s * .5 * t.mv;
@@ -2775,6 +2800,7 @@ const camPos = new THREE.Vector3(0, 16, 103);
    bertahap (dan bayangan dimatikan di tingkat terendah) supaya tetap mulus
    di HP lemah; naik lagi sendiri kalau mesinnya ternyata kuat. */
 let perfFrames = 0, perfTime = 0, prLevel = 0;
+let prTurunT = 0, prNaikT = 0;
 const PR_STEPS = [Math.min(devicePixelRatio || 1, 1.5), 1.25, 1.1, 1];
 function tick(){
   requestAnimationFrame(tick);
@@ -2785,13 +2811,25 @@ function tick(){
   if(perfFrames >= 100){
     const fps = perfFrames / perfTime;
     perfFrames = 0; perfTime = 0;
+    /* Histresis anti-osilasi (laporan Demile 6 Nov sore: gerakan
+       patah-patah di PC+HP): turun kelas harus terbukti 2 jendela
+       berturut (±4 detik), naik kelas menunggu 8 detik sejak turun
+       terakhir — tanpa ini resolusi+bayangan naik-turun terus dan
+       frame tersendat periodik. */
     if(fps < 45 && prLevel < PR_STEPS.length - 1){
-      prLevel++; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
-      if(prLevel === PR_STEPS.length - 1) sun.castShadow = false;
+      prTurunT += perfTime;
+      if(prTurunT >= 2){
+        prLevel++; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
+        if(prLevel === PR_STEPS.length - 1) sun.castShadow = false;
+        prTurunT = 0; prNaikT = performance.now();
+      }
     } else if(fps > 57 && prLevel > 0){
-      prLevel--; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
-      sun.castShadow = true;
-    }
+      prTurunT = 0;
+      if(performance.now() - prNaikT > 8000){
+        prLevel--; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
+        sun.castShadow = true;
+      }
+    } else prTurunT = 0;
   }
 
   /* Masukan dalam ruang kamera: iz maju+, ix kanan+ */
