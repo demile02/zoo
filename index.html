@@ -145,6 +145,7 @@
   <div class="wpanel">
     <div class="wword">Selamat datang!</div>
     <div class="wbody">Ini Kebun Binatang Komen, zoo yang dibangun dari komentar. Setiap hari satu hewan baru datang dari komentar paling disukai, dan namanya adalah nama pengusulnya.</div>
+    <div class="wbody" style="margin-top:8px">Pengunjung baru? Isi nama dan pilih warna karaktermu di bawah — Kartu Tanda Pengunjungmu langsung diterbitkan begitu kamu masuk.</div>
     <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat · tombol 📷 buat mode konten (HUD hilang, cocok buat screenshot)<br>Kereta berhenti 15 detik di stasiun: dekati gerbong lalu tekan tombol Naik buat ikut keliling, turun di stasiun berikutnya<br>Cubit dua jari di sisi kanan layar buat mengatur zoom kamera</div>
     <input id="namaInput" type="text" maxlength="16" placeholder="Nama panggilanmu (buat KTP)" autocomplete="off">
     <div class="wwarna"><span id="warnaDot"></span><span id="warnaNama">Warna karaktermu</span><button id="warnaBtn" type="button">🎲 Acak warna</button></div>
@@ -354,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1245';
-/* BUILD 20261106-1245 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1705';
+/* BUILD 20261106-1705 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -367,7 +368,10 @@ const BUILD = '20261106-1245';
    Stasiun dipangkas jadi 3 per kereta (perintah Demile 6 Nov siang,
    5-6 pemberhentian kelamaan): Wisata = Edukasi, Karnivora, Savana;
    Safari = Plaza, Karnivora, Pegunungan. Gapura dan penanda denah
-   stasiun yang dicabut ikut dihapus. */
+   stasiun yang dicabut ikut dihapus. Pengguna baru (belum ada data
+   'zoo-nama' di localStorage) dipastikan langsung dimunculkan kartu:
+   panel sambutan menyebut penerbitan KTP, dan acuan kartu otomatis
+   kini berbasis data identitas, bukan bendera sambutan. */
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -2749,14 +2753,19 @@ document.getElementById('warnaBtn').addEventListener('click', ()=>{
   gantiWarnaPemain();
   if(sbOk && sbChannel) sbChannel.track({ nama: IDENTITAS.nama || 'Pengunjung', warna: IDENTITAS.warna, nomor: KTP.nomor }).catch(()=>{});
 });
-const kunjunganPertama = (()=>{ try{ return !localStorage.getItem('zoo-welcomed'); }catch(_){ return false; } })();
+/* Pengguna baru = belum punya data identitas sama sekali di perangkat
+   ini (belum pernah menyimpan nama). Acuan ini yang menentukan kartu
+   diterbitkan otomatis; bendera 'zoo-welcomed' hanya mengatur panel
+   sambutan. Perintah Demile 6 Nov: pengguna baru WAJIB langsung
+   dimunculkan form/kartunya. */
+const penggunaBaru = (()=>{ try{ return !localStorage.getItem('zoo-nama'); }catch(_){ return true; } })();
 document.getElementById('welcomeGo').addEventListener('click', ()=>{
   const bersih = namaInput.value.replace(/[<>&"]/g, '').trim().slice(0, 16);
   IDENTITAS.nama = bersih || ('Pengunjung ' + KTP.nomor.slice(-4));
   namaInput.value = IDENTITAS.nama;
   simpanIdentitas();
   if(sbOk && sbChannel) sbChannel.track({ nama: IDENTITAS.nama, warna: IDENTITAS.warna, nomor: KTP.nomor }).catch(()=>{});
-  if(kunjunganPertama) setTimeout(tampilKTP, 350);
+  if(penggunaBaru) setTimeout(tampilKTP, 350);
 });
 mulaiMultiplayer();
 
