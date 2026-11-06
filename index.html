@@ -355,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1850';
-/* BUILD 20261106-1850 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1905';
+/* BUILD 20261106-1905 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -468,8 +468,8 @@ const sun = new THREE.DirectionalLight(0xFFF3D6, 2.6);
 sun.position.set(80, 120, 55);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
-sun.shadow.camera.left = -160; sun.shadow.camera.right = 160;
-sun.shadow.camera.top = 160; sun.shadow.camera.bottom = -160;
+sun.shadow.camera.left = -42; sun.shadow.camera.right = 42;
+sun.shadow.camera.top = 42; sun.shadow.camera.bottom = -42;
 scene.add(sun);
 scene.add(new THREE.HemisphereLight(0xeaf6ff, 0x6d8f57, 1.15));
 
@@ -2662,10 +2662,14 @@ function mpTick(dt){
     }
     mpPX = x; mpPZ = z;
   }
-  /* Gerakkan avatar pemain lain: posisi dirender = ekstrapolasi dari
-     dua paket terakhir (kecepatan × jeda sejak paket terakhir, dibatasi
-     250 md), lalu dilicinkan ringan. Penumpang kereta ditempel langsung
+  /* Gerakkan avatar pemain lain dengan POSISI HISTORIS MURNI (revisi
+     6 Nov malam): avatar dirender persis pada posisi yang dikirim
+     lawan pada waktu (sekarang - 120 md), diinterpolasi linear antara
+     dua paket yang mengapitnya. Tanpa ekstrapolasi dan tanpa lerp
+     pengejaran — dua cara lama itu yang membuat avatar tampak
+     melompat/mengejar tersendat. Penumpang kereta ditempel langsung
      ke gerbong tengah kereta yang sama di layar ini. */
+  const T_TUNDA = 120;
   for(const e of REMOTES.values()){
     if(!e.ke) continue;
     const g = e.p.group, a = e.dari, b = e.ke;
@@ -2676,14 +2680,15 @@ function mpTick(dt){
         g.rotation.y += (T.cars[1].rotation.y - g.rotation.y) * Math.min(1, dt * 8);
       }
     } else {
-      const span = Math.max(1, b.t - a.t);
-      let jeda = Math.min((performance.now() - b.t) / span, 1.6);
-      const vx = (b.x - a.x) / span * 1000, vz = (b.z - a.z) / span * 1000;
-      const txp = b.x + vx * (jeda * span / 1000), tzp = b.z + vz * (jeda * span / 1000);
-      const kk = 1 - Math.pow(.0000001, dt);
-      g.position.x += (txp - g.position.x) * kk;
-      g.position.z += (tzp - g.position.z) * kk;
-      g.position.y += (b.y - g.position.y) * Math.min(1, dt * 14);
+      const tR = performance.now() - T_TUNDA;
+      if(tR <= a.t){ g.position.x = a.x; g.position.z = a.z; g.position.y = a.y; }
+      else if(tR >= b.t){ g.position.x = b.x; g.position.z = b.z; g.position.y = b.y; }
+      else {
+        const f = (tR - a.t) / Math.max(1, b.t - a.t);
+        g.position.x = a.x + (b.x - a.x) * f;
+        g.position.z = a.z + (b.z - a.z) * f;
+        g.position.y = a.y + (b.y - a.y) * f;
+      }
     }
     const t = b;
     let dh = t.h - g.rotation.y;
@@ -2794,6 +2799,18 @@ document.getElementById('welcomeGo').addEventListener('click', ()=>{
 });
 mulaiMultiplayer();
 
+/* Peta bayangan mengikuti pemain (jendela 84 unit di sekitar pemain,
+   digeser per kelipatan texel supaya tepi bayangan tidak berenang):
+   sebelumnya satu peta 2048 untuk seluruh map 320 unit membuat
+   bayangan bergetar kasar saat kamera bergerak (patah-patah semu). */
+const SH_TEXEL = 84 / 2048;
+function ikutBayangan(){
+  const cx = visitor.position.x + 80, cz = visitor.position.z + 55;
+  const sx = Math.round(cx / SH_TEXEL) * SH_TEXEL, sz = Math.round(cz / SH_TEXEL) * SH_TEXEL;
+  sun.position.set(sx, 120, sz);
+  sun.target.position.set(sx - 80, 0, sz - 55);
+  sun.target.updateMatrixWorld();
+}
 const clock = new THREE.Clock();
 const camPos = new THREE.Vector3(0, 16, 103);
 /* Skala kualitas adaptif: kalau frame rate jatuh, resolusi render diturunkan
@@ -2811,23 +2828,28 @@ function tick(){
   if(perfFrames >= 100){
     const fps = perfFrames / perfTime;
     perfFrames = 0; perfTime = 0;
-    /* Histresis anti-osilasi (laporan Demile 6 Nov sore: gerakan
-       patah-patah di PC+HP): turun kelas harus terbukti 2 jendela
-       berturut (±4 detik), naik kelas menunggu 8 detik sejak turun
-       terakhir — tanpa ini resolusi+bayangan naik-turun terus dan
-       frame tersendat periodik. */
+    /* Kualitas adaptif STABIL (revisi 6 Nov malam atas laporan kedua
+       Demile "masih patah-patah"): tombol naik lama (tunggu 8 detik
+       lalu naik 1 jenjang) di mesin pas-pasan berarti resize kanvas
+       besar + bayangan nyala-padam BERULANG tanpa akhir — itulah
+       sendatan periodiknya. Sekarang: naik HANYA bila fps utuh
+       maksimal (59+) selama 15 detik penuh sejak turun terakhir;
+       di tingkat dasar, sesudah 15 detik fps benar-benar rendah
+       (<38), bayangan dimatikan sekali saja dan mengunci di sana. */
     if(fps < 45 && prLevel < PR_STEPS.length - 1){
       prTurunT += perfTime;
       if(prTurunT >= 2){
         prLevel++; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
-        if(prLevel === PR_STEPS.length - 1) sun.castShadow = false;
         prTurunT = 0; prNaikT = performance.now();
       }
-    } else if(fps > 57 && prLevel > 0){
+    } else if(fps < 38 && prLevel === PR_STEPS.length - 1 && sun.castShadow){
+      prTurunT += perfTime;
+      if(prTurunT >= 15){ sun.castShadow = false; prTurunT = 0; }
+    } else if(fps > 59 && prLevel > 0){
       prTurunT = 0;
-      if(performance.now() - prNaikT > 8000){
+      if(performance.now() - prNaikT > 15000){
         prLevel--; renderer.setPixelRatio(PR_STEPS[prLevel]); applySize();
-        sun.castShadow = true;
+        prNaikT = performance.now();
       }
     } else prTurunT = 0;
   }
