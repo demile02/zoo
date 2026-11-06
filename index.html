@@ -88,6 +88,31 @@
   #err .box{max-width:420px}
   #err h1{font-family:'Reenie Beanie',cursive;font-size:40px;color:var(--leaf)}
   #err p{margin-top:8px;font-size:15px;line-height:1.5}
+
+  #ktpBtn{position:absolute;z-index:8;top:168px;right:12px;width:44px;height:44px;border-radius:50%;background:rgba(253,252,248,.94);border:0;font-size:19px;box-shadow:var(--card-shadow);cursor:pointer}
+  #app.content #ktpBtn{display:none!important}
+  #namaInput{width:100%;margin-top:12px;font:inherit;font-weight:600;font-size:14.5px;padding:11px 14px;border:2px solid #E6E6FA;border-radius:14px;background:#fff;color:var(--ink);text-align:center}
+  #namaInput:focus{outline:none;border-color:#6F66A3}
+  .wwarna{margin-top:9px;display:flex;align-items:center;justify-content:center;gap:9px;font-size:12.5px;font-weight:600;color:#6F66A3}
+  #warnaDot{width:22px;height:22px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 8px rgba(46,42,36,.3)}
+  #warnaBtn{font:inherit;font-weight:800;font-size:12.5px;color:#6F66A3;background:#EFEDF4;border:0;border-radius:999px;padding:7px 13px;cursor:pointer}
+  #ktpOverlay{position:absolute;inset:0;z-index:34;background:rgba(46,42,36,.5);display:none;place-items:center;padding:16px}
+  #ktpOverlay.show{display:grid}
+  #ktpCard{width:min(94vw,470px);background:linear-gradient(135deg,#FDFCF8 0%,#EFEDF4 130%);border-radius:20px;box-shadow:var(--card-shadow);overflow:hidden;border:1px solid rgba(111,102,163,.35)}
+  #ktpCard .khead{background:#6F66A3;color:#FDFCF8;padding:13px 18px;display:flex;justify-content:space-between;align-items:center}
+  #ktpCard .khead .kt{font-weight:800;letter-spacing:.06em;font-size:13px}
+  #ktpCard .khead .ks{font-family:'Reenie Beanie',cursive;font-size:19px}
+  #ktpCard .kbody{padding:16px 18px;display:flex;gap:15px}
+  #ktpAva{flex:0 0 86px;height:104px;border-radius:12px;display:grid;place-items:center;font-size:40px;font-weight:800;color:#fff;box-shadow:inset 0 -10px 18px rgba(46,42,36,.18)}
+  #ktpCard .krows{flex:1;min-width:0}
+  #ktpCard .krow{margin-bottom:7px}
+  #ktpCard .klabel{font-size:9.5px;font-weight:800;letter-spacing:.11em;color:#6F66A3;text-transform:uppercase}
+  #ktpCard .kval{font-size:15.5px;font-weight:700;line-height:1.25;word-break:break-word}
+  #ktpCard .kval.big{font-size:19px;font-weight:800}
+  #ktpCard .kfoot{padding:0 18px 14px;display:flex;gap:9px}
+  #ktpCard .kbtn{flex:1;font:inherit;font-weight:800;font-size:13.5px;border-radius:999px;padding:11px 10px;cursor:pointer;border:2px solid #6F66A3}
+  #ktpUnduh{background:#6F66A3;color:#fff}
+  #ktpTutup{background:transparent;color:#6F66A3}
 </style>
 </head>
 <body>
@@ -114,12 +139,15 @@
 <button id="mapBtn" type="button">🗺️ Denah</button>
 <button id="helpBtn" type="button" aria-label="Bantuan">?</button>
 <button id="camBtn" type="button" aria-label="Mode konten" aria-pressed="false" title="Mode konten: sembunyikan HUD (tekan lagi untuk memunculkan)">📷</button>
+<button id="ktpBtn" type="button" aria-label="Kartu Tanda Pengunjung" title="Kartu Tanda Pengunjungmu">🪪</button>
 <div id="social"></div>
 <div id="welcome">
   <div class="wpanel">
     <div class="wword">Selamat datang!</div>
     <div class="wbody">Ini Kebun Binatang Komen, zoo yang dibangun dari komentar. Setiap hari satu hewan baru datang dari komentar paling disukai, dan namanya adalah nama pengusulnya.</div>
     <div class="wctrl">Analog kiri buat jalan · seret layar buat melihat sekeliling<br>Dekati hewan lalu tekan tombol Sapa<br>Tombol Denah di kanan atas kalau tersesat · tombol 📷 buat mode konten (HUD hilang, cocok buat screenshot)<br>Kereta berhenti 15 detik di stasiun: dekati gerbong lalu tekan tombol Naik buat ikut keliling, turun di stasiun berikutnya<br>Cubit dua jari di sisi kanan layar buat mengatur zoom kamera</div>
+    <input id="namaInput" type="text" maxlength="16" placeholder="Nama panggilanmu (buat KTP)" autocomplete="off">
+    <div class="wwarna"><span id="warnaDot"></span><span id="warnaNama">Warna karaktermu</span><button id="warnaBtn" type="button">🎲 Acak warna</button></div>
     <button class="wgo" id="welcomeGo" type="button">Mulai jalan-jalan</button>
   </div>
 </div>
@@ -127,6 +155,25 @@
   <div id="mapPanel">
     <div class="mhead"><span class="mtitle">Denah Zoo</span><span class="mclose">KETUK UNTUK TUTUP</span></div>
     <canvas id="mapCv" width="620" height="470"></canvas>
+  </div>
+</div>
+<div id="ktpOverlay">
+  <div id="ktpCard">
+    <div class="khead"><span class="kt">KARTU TANDA PENGUNJUNG</span><span class="ks">Kebun Binatang Komen</span></div>
+    <div class="kbody">
+      <div id="ktpAva">?</div>
+      <div class="krows">
+        <div class="krow"><div class="klabel">No. Pengunjung</div><div class="kval" id="ktpNomor">-</div></div>
+        <div class="krow"><div class="klabel">Nama</div><div class="kval big" id="ktpNama">-</div></div>
+        <div class="krow"><div class="klabel">Status</div><div class="kval">Pengunjung</div></div>
+        <div class="krow"><div class="klabel">Diterbitkan</div><div class="kval" id="ktpTerbit">-</div></div>
+        <div class="krow"><div class="klabel">Berlaku hingga</div><div class="kval">Selama zoo berdiri</div></div>
+      </div>
+    </div>
+    <div class="kfoot">
+      <button class="kbtn" id="ktpUnduh" type="button">⬇ Simpan sebagai gambar</button>
+      <button class="kbtn" id="ktpTutup" type="button">Tutup</button>
+    </div>
   </div>
 </div>
 <div id="load">
@@ -294,7 +341,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261105-2043';
+const BUILD = '20261106-0912';
 const RESTORE = (()=>{
   try{
     const sv = JSON.parse(sessionStorage.getItem('zoo-pos') || 'null');
@@ -311,6 +358,49 @@ const TANGGAL_MULAI = '2026-11-04';
   const hari = Math.max(1, Math.round((now - mulai) / 86400000) + 1);
   document.getElementById('brandSub').textContent = 'zoo dari komentar · Hari ke-' + hari;
 }
+
+/* Identitas pengunjung: persisten per perangkat (localStorage).
+   Nama + warna karakter menjadi isi Kartu Tanda Pengunjung dan
+   identitas yang dilihat pengunjung lain di mode multiplayer. */
+const PALET_WARNA = [
+  [0xE86A2C, 'Oranye'], [0x4E7A3A, 'Hijau Daun'], [0x3E7CB1, 'Biru'],
+  [0xC94F4F, 'Merah'], [0xE8B33C, 'Kuning'], [0x7A5FA3, 'Ungu'],
+  [0x3FA08C, 'Toska'], [0xD96C9E, 'Merah Muda'], [0x5B7A99, 'Biru Abu'],
+  [0x8A6742, 'Coklat'],
+];
+const IDENTITAS = (()=>{
+  let id = null, nama = '', warna = Math.floor(Math.random() * PALET_WARNA.length);
+  try{
+    id = localStorage.getItem('zoo-id');
+    if(!id){ id = (crypto.randomUUID ? crypto.randomUUID() : 'z' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10)); localStorage.setItem('zoo-id', id); }
+    nama = localStorage.getItem('zoo-nama') || '';
+    const w = parseInt(localStorage.getItem('zoo-warna'), 10);
+    if(Number.isFinite(w) && PALET_WARNA[w]) warna = w;
+  }catch(_){ if(!id) id = 'z' + Math.random().toString(36).slice(2, 12); }
+  return { id, nama, warna };
+})();
+function simpanIdentitas(){
+  try{
+    localStorage.setItem('zoo-nama', IDENTITAS.nama);
+    localStorage.setItem('zoo-warna', String(IDENTITAS.warna));
+  }catch(_){}
+}
+/* Kartu Tanda Pengunjung: diterbitkan sekali per perangkat; nomornya
+   12 digit acak yang disimpan, namanya mengikuti nama panggilan. */
+const KTP = (()=>{
+  let k = null;
+  try{ k = JSON.parse(localStorage.getItem('zoo-ktp') || 'null'); }catch(_){}
+  if(!k || !k.nomor){
+    let no = '';
+    const rndArr = new Uint32Array(3);
+    crypto.getRandomValues(rndArr);
+    no = String(rndArr[0] % 9000 + 1000) + ' ' + String(rndArr[1] % 9000 + 1000) + ' ' + String(rndArr[2] % 9000 + 1000);
+    k = { nomor: no, terbit: new Date().toISOString() };
+    try{ localStorage.setItem('zoo-ktp', JSON.stringify(k)); }catch(_){}
+    k.baru = true;
+  }
+  return k;
+})();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ec9ee);
@@ -1696,7 +1786,7 @@ function makeHumanoid(o){
 }
 
 /* Pengunjung = karakter yang dikendalikan pemain */
-const VP = makeHumanoid({ shirt:0xE86A2C, skin:0xe8b98d, pants:0x44536b, hat:0x4E7A3A, hatStyle:'cap' });
+const VP = makeHumanoid({ shirt:PALET_WARNA[IDENTITAS.warna][0], skin:0xe8b98d, pants:0x44536b, hat:0x4E7A3A, hatStyle:'cap' });
 const visitor = VP.group;
 window.ZOO_PLAYER = visitor;
 const legL = VP.legL, legR = VP.legR, armL = VP.armL, armR = VP.armR, bodyG = VP.body;
@@ -2341,6 +2431,233 @@ mergeInto(ROCK_GEOS, MAT.rock);
 mergeInto(EMAS_GEOS, new THREE.MeshLambertMaterial({ color:0xd9a441 }));
 mergeInto(LAMPU_GEOS, new THREE.MeshBasicMaterial({ color:0xffe9b0 }));
 
+
+/* ================= MULTIPLAYER + KARTU TANDA PENGUNJUNG =================
+   Realtime lewat Supabase (proyek yang sama dengan papan progres):
+   Presence mencatat siapa yang sedang di dalam, Broadcast menyiarkan
+   posisi tiap pemain ±7 kali/detik dan gerakan pemain lain dihaluskan
+   dengan interpolasi. Tanpa server sendiri; kalau Supabase tidak
+   terjangkau, zoo berjalan solo seperti biasa (semua fungsi lain
+   tidak bergantung pada blok ini). Kunci yang dipakai adalah kunci
+   anon publik, memang untuk dibagikan ke peramban. */
+const SB_URL = 'https://czvshkgrfyrhmiwydtwt.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6dnNoa2dyZnlyaG1pd3lkdHd0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg3ODM0MTgsImV4cCI6MjA5NDM1OTQxOH0.kSnZAdHu5rW0CLrCxpiG8ldeNyXR6FM9I5ZrJhLUA-4';
+const REMOTES = new Map();
+let sbChannel = null, sbOk = false;
+let mpKirim = 0, mpX = 1e9, mpZ = 1e9, mpH = 0, mpPX = null, mpPZ = null;
+const kulitDari = id => { let h = 0; for(const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return [0xe8b98d, 0xc98d5f, 0x8d5a3b, 0xf2c9a0][h % 4]; };
+const celanaDari = id => { let h = 0; for(const c of String(id)) h = (h * 17 + c.charCodeAt(0)) >>> 0; return [0x44536b, 0x5b4632, 0x2e3a4e, 0x6b4a5a][h % 4]; };
+function labelNama(nama){
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+  const c = cv.getContext('2d');
+  c.font = '700 30px Outfit, sans-serif';
+  const tw = Math.min(236, c.measureText(nama).width + 28);
+  c.fillStyle = 'rgba(253,252,248,.92)';
+  c.beginPath(); c.roundRect((256 - tw) / 2, 8, tw, 46, 23); c.fill();
+  c.fillStyle = '#2E2A24'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(nama, 128, 32);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true }));
+  spr.scale.set(3.6, .9, 1);
+  return spr;
+}
+function buatAvatarJauh(id, meta){
+  const parts = makeHumanoid({
+    shirt: (PALET_WARNA[meta.warna] || PALET_WARNA[0])[0],
+    skin: kulitDari(id), pants: celanaDari(id),
+    hat: (PALET_WARNA[((meta.warna || 0) + 3) % PALET_WARNA.length])[0],
+    hatStyle: (id.charCodeAt(0) % 2) ? 'cap' : 'brim',
+  });
+  parts.group.traverse(m => { if(m.isMesh) m.castShadow = false; });
+  const label = labelNama(meta.nama || 'Pengunjung');
+  label.position.y = 3.3;
+  parts.group.add(label);
+  scene.add(parts.group);
+  const e = { p: parts, label, target: null, phase: Math.random() * 6, last: performance.now() };
+  REMOTES.set(id, e);
+  return e;
+}
+function hapusAvatarJauh(id){
+  const e = REMOTES.get(id);
+  if(!e) return;
+  scene.remove(e.p.group);
+  REMOTES.delete(id);
+}
+function terimaPosisi(pl){
+  if(!pl || pl.id === IDENTITAS.id) return;
+  let e = REMOTES.get(pl.id);
+  if(!e) e = buatAvatarJauh(pl.id, pl);
+  e.target = { x: pl.x, z: pl.z, h: pl.h, y: pl.y || 0, mv: pl.mv || 0 };
+  if(!e.pertama){
+    e.p.group.position.set(pl.x, pl.y || 0, pl.z);
+    e.p.group.rotation.y = pl.h;
+    e.pertama = true;
+  }
+  e.last = performance.now();
+}
+function hariKe(){
+  const mulai = new Date(TANGGAL_MULAI + 'T00:00:00');
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  return Math.max(1, Math.round((now - mulai) / 86400000) + 1);
+}
+function perbaruiBrand(n){
+  document.getElementById('brandSub').textContent =
+    'zoo dari komentar · Hari ke-' + hariKe() + (n > 1 ? ' · ' + n + ' pengunjung di dalam' : '');
+}
+function sinkronKehadiran(){
+  if(!sbChannel) return;
+  const st = sbChannel.presenceState();
+  const keys = Object.keys(st).filter(k => k !== IDENTITAS.id);
+  perbaruiBrand(keys.length + 1);
+  for(const id of [...REMOTES.keys()])
+    if(!keys.includes(id) && performance.now() - REMOTES.get(id).last > 3000) hapusAvatarJauh(id);
+}
+async function mulaiMultiplayer(){
+  try{
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    const sb = createClient(SB_URL, SB_ANON, { realtime: { params: { eventsPerSecond: 20 } } });
+    const ch = sb.channel('zoo-lobby', { config: { presence: { key: IDENTITAS.id }, broadcast: { self: false } } });
+    ch.on('presence', { event: 'sync' }, sinkronKehadiran);
+    ch.on('broadcast', { event: 'pos' }, ({ payload }) => terimaPosisi(payload));
+    ch.subscribe(async status => {
+      if(status === 'SUBSCRIBED'){
+        sbOk = true; sbChannel = ch;
+        await ch.track({ nama: IDENTITAS.nama || 'Pengunjung', warna: IDENTITAS.warna, nomor: KTP.nomor });
+        sinkronKehadiran();
+      }
+    });
+  }catch(_){ /* mode solo */ }
+}
+function mpTick(dt){
+  /* Kirim posisi sendiri (dijatah: tiap ±140 md saat bergerak,
+     atau tiap ±900 md sebagai detak diam) */
+  if(sbOk && sbChannel){
+    const now = performance.now();
+    const x = visitor.position.x, z = visitor.position.z;
+    const bergerak = Math.hypot(x - mpX, z - mpZ) > .08 || Math.abs(heading - mpH) > .03;
+    if((bergerak && now - mpKirim > 140) || now - mpKirim > 900){
+      let mv = 0;
+      if(mpPX !== null && dt > 0) mv = Math.min(1, Math.hypot(x - mpPX, z - mpPZ) / dt / 17);
+      if(naik) mv = 0;
+      sbChannel.send({ type: 'broadcast', event: 'pos', payload: {
+        id: IDENTITAS.id, nama: IDENTITAS.nama || 'Pengunjung', warna: IDENTITAS.warna,
+        x: +x.toFixed(2), z: +z.toFixed(2), h: +heading.toFixed(3),
+        y: +visitor.position.y.toFixed(2), mv: +mv.toFixed(2),
+      }}).catch(()=>{});
+      mpKirim = now; mpX = x; mpZ = z; mpH = heading;
+    }
+    mpPX = x; mpPZ = z;
+  }
+  /* Gerakkan avatar pemain lain menuju sasaran terakhirnya */
+  const k = 1 - Math.pow(.0005, dt);
+  for(const e of REMOTES.values()){
+    if(!e.target) continue;
+    const g = e.p.group, t = e.target;
+    g.position.x += (t.x - g.position.x) * k;
+    g.position.z += (t.z - g.position.z) * k;
+    g.position.y = t.y;
+    let dh = t.h - g.rotation.y;
+    while(dh > Math.PI) dh -= Math.PI * 2;
+    while(dh < -Math.PI) dh += Math.PI * 2;
+    g.rotation.y += dh * Math.min(1, dt * 10);
+    if(t.mv > .05){
+      e.phase += dt * (6 + 8 * t.mv);
+      const s = Math.sin(e.phase);
+      e.p.legL.rotation.x = s * .5 * t.mv;
+      e.p.legR.rotation.x = -s * .5 * t.mv;
+      e.p.armL.rotation.x = -s * .4 * t.mv;
+      e.p.armR.rotation.x = s * .4 * t.mv;
+    } else {
+      for(const l of [e.p.legL, e.p.legR, e.p.armL, e.p.armR]) l.rotation.x *= .8;
+    }
+  }
+}
+window.ZOO_MP = { get jumlah(){ return REMOTES.size; }, terimaPosisi };
+
+/* ---------- Kartu Tanda Pengunjung: tampilan + unduh ---------- */
+const ktpOverlay = document.getElementById('ktpOverlay');
+function cssWarna(i){ return '#' + (PALET_WARNA[i] || PALET_WARNA[0])[0].toString(16).padStart(6, '0'); }
+function tampilKTP(){
+  document.getElementById('ktpNomor').textContent = KTP.nomor;
+  document.getElementById('ktpNama').textContent = IDENTITAS.nama || 'Pengunjung';
+  const ava = document.getElementById('ktpAva');
+  ava.style.background = cssWarna(IDENTITAS.warna);
+  ava.textContent = (IDENTITAS.nama || 'P').trim().charAt(0).toUpperCase() || 'P';
+  document.getElementById('ktpTerbit').textContent =
+    new Date(KTP.terbit).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · Hari ke-' + hariKe();
+  ktpOverlay.classList.add('show');
+}
+document.getElementById('ktpBtn').addEventListener('click', tampilKTP);
+document.getElementById('ktpTutup').addEventListener('click', ()=> ktpOverlay.classList.remove('show'));
+ktpOverlay.addEventListener('click', e => { if(e.target === ktpOverlay) ktpOverlay.classList.remove('show'); });
+document.getElementById('ktpUnduh').addEventListener('click', ()=>{
+  const cv = document.createElement('canvas'); cv.width = 1050; cv.height = 660;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#FDFCF8'; c.beginPath(); c.roundRect(0, 0, 1050, 660, 36); c.fill();
+  c.fillStyle = '#6F66A3'; c.fillRect(0, 0, 1050, 120);
+  c.fillStyle = '#FDFCF8'; c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.font = '800 40px Outfit, sans-serif';
+  c.fillText('KARTU TANDA PENGUNJUNG', 48, 62);
+  c.textAlign = 'right'; c.font = '34px "Reenie Beanie", cursive';
+  c.fillText('Kebun Binatang Komen', 1002, 62);
+  c.fillStyle = cssWarna(IDENTITAS.warna);
+  c.beginPath(); c.roundRect(48, 168, 220, 264, 24); c.fill();
+  c.fillStyle = '#fff'; c.textAlign = 'center';
+  c.font = '800 120px Outfit, sans-serif';
+  c.fillText((IDENTITAS.nama || 'P').trim().charAt(0).toUpperCase() || 'P', 158, 306);
+  c.textAlign = 'left'; c.fillStyle = '#2E2A24';
+  const baris = (label, val, y, besar) => {
+    c.font = '800 21px Outfit, sans-serif'; c.fillStyle = '#6F66A3';
+    c.fillText(label, 316, y);
+    c.font = (besar ? '800 44px' : '700 34px') + ' Outfit, sans-serif'; c.fillStyle = '#2E2A24';
+    c.fillText(val, 316, y + 40);
+  };
+  baris('NO. PENGUNJUNG', KTP.nomor, 190, false);
+  baris('NAMA', IDENTITAS.nama || 'Pengunjung', 300, true);
+  baris('STATUS', 'Pengunjung', 428, false);
+  c.font = '700 26px Outfit, sans-serif'; c.fillStyle = '#6F66A3';
+  c.fillText('Diterbitkan ' + new Date(KTP.terbit).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · Berlaku selama zoo berdiri 🐾', 48, 590);
+  const a = document.createElement('a');
+  a.download = 'kartu-tanda-pengunjung-' + (IDENTITAS.nama || 'pengunjung').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+});
+
+/* ---------- Panel sambutan: nama + warna mengikat identitas ---------- */
+const namaInput = document.getElementById('namaInput');
+const warnaDot = document.getElementById('warnaDot');
+const warnaNama = document.getElementById('warnaNama');
+function segarWarna(){
+  warnaDot.style.background = cssWarna(IDENTITAS.warna);
+  warnaNama.textContent = 'Warna karaktermu: ' + (PALET_WARNA[IDENTITAS.warna] || PALET_WARNA[0])[1];
+}
+function gantiWarnaPemain(){
+  const baru = (PALET_WARNA[IDENTITAS.warna] || PALET_WARNA[0])[0];
+  for(const m of VP.body.children)
+    if(m.isMesh && m.geometry && m.geometry.type === 'CylinderGeometry')
+      m.material.color.setHex(baru);
+  segarWarna();
+}
+namaInput.value = IDENTITAS.nama;
+segarWarna();
+document.getElementById('warnaBtn').addEventListener('click', ()=>{
+  let w = IDENTITAS.warna;
+  while(w === IDENTITAS.warna) w = Math.floor(Math.random() * PALET_WARNA.length);
+  IDENTITAS.warna = w;
+  simpanIdentitas();
+  gantiWarnaPemain();
+  if(sbOk && sbChannel) sbChannel.track({ nama: IDENTITAS.nama || 'Pengunjung', warna: IDENTITAS.warna, nomor: KTP.nomor }).catch(()=>{});
+});
+const kunjunganPertama = (()=>{ try{ return !localStorage.getItem('zoo-welcomed'); }catch(_){ return false; } })();
+document.getElementById('welcomeGo').addEventListener('click', ()=>{
+  const bersih = namaInput.value.replace(/[<>&"]/g, '').trim().slice(0, 16);
+  IDENTITAS.nama = bersih || ('Pengunjung ' + KTP.nomor.slice(-4));
+  namaInput.value = IDENTITAS.nama;
+  simpanIdentitas();
+  if(sbOk && sbChannel) sbChannel.track({ nama: IDENTITAS.nama, warna: IDENTITAS.warna, nomor: KTP.nomor }).catch(()=>{});
+  if(kunjunganPertama) setTimeout(tampilKTP, 350);
+});
+mulaiMultiplayer();
+
 const clock = new THREE.Clock();
 const camPos = new THREE.Vector3(0, 16, 103);
 /* Skala kualitas adaptif: kalau frame rate jatuh, resolusi render diturunkan
@@ -2450,6 +2767,7 @@ function tick(){
   updateInteract(t);
   TRAINS.update(dt);
   updatePemainKereta(dt);
+  mpTick(dt);
   for(const n of NPCS){
     /* Saat diajak bicara, NPC berhenti berjalan dan menoleh ke pemain */
     const talking = n.chat && (t - n.chat.speakT) < 3.5;
