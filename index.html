@@ -355,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1830';
-/* BUILD 20261106-1830 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1850';
+/* BUILD 20261106-1850 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -2977,6 +2977,7 @@ function tick(){
     savePosT = 0;
     try{ sessionStorage.setItem('zoo-pos', JSON.stringify({ x:visitor.position.x, z:visitor.position.z, h:heading })); }catch(_){}
   }
+  ikutBayangan();
   renderer.render(scene, camera);
   if(!window.__loadDone){ window.__loadDone = true; document.getElementById('load').classList.add('done'); }
 }
