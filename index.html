@@ -355,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1925';
-/* BUILD 20261106-1925 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1945';
+/* BUILD 20261106-1945 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -656,6 +656,11 @@ function makeTrack(waypoints, R = 7){
   }
   return { at, total, stopNear, stopPoint, pts, dwell: 0 };
 }
+/* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun
+   bergantian. Laju kereta 8,5 unit/dtk. Keduanya konstanta SIKLUS:
+   dipakai makeTrain saat menyusun garis waktu putaran (jam dinding). */
+const LAMA_BERHENTI = 15;
+const LAJU_KERETA = 8.5;
 const wheelM = new THREE.MeshLambertMaterial({ color:0x333a45 });
 function trainWheels(g, xs){
   for(const wx of xs){
@@ -767,8 +772,8 @@ const ALL_TRAINS = [
     { nama:'safari', loco:0xB84A39, wagons:[0xf3ead8, 0x5ea8c9], phase: 95 }),
 ];
 window.ZOO_TRAINS = ALL_TRAINS;
-/* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun bergantian */
-const LAMA_BERHENTI = 15;
+/* (LAMA_BERHENTI + LAJU_KERETA dideklarasikan sebelum makeTrain di
+   atas — konstanta siklus dipakai saat kereta dibangun.) */
 /* SINKRON ANTAR PERANGKAT (perbaikan 6 Nov malam, laporan Demile: "gak
    sinkron — HP ga ada kereta, PC ada kereta" padahal waktu sama):
    posisi kereta TIDAK lagi diakumulasi dari jam lokal tiap perangkat
@@ -778,7 +783,6 @@ const LAMA_BERHENTI = 15;
    Satu putaran penuh dibagi segmen menyambung: jalan antar stasiun
    (jarak rel / 8,5) diselingi berhenti 15 dtk di tiap stasiun; fase
    di dalam putaran menentukan s + sisa berhenti secara tertutup. */
-const LAJU_KERETA = 8.5;
 function statusSiklusKereta(T, tDtk){
   const sg = T.siklus.segmen;
   let f = tDtk % T.siklus.total;
