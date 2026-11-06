@@ -355,8 +355,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 /* Versi halaman + posisi terakhir pemain. Halaman memeriksa versinya
    sendiri berkala; kalau ada versi baru ia memuat ulang sendiri dan
    pemain kembali ke posisi terakhirnya, tidak mulai dari gerbang lagi. */
-const BUILD = '20261106-1905';
-/* BUILD 20261106-1905 — sapuan audit 6 Nov (12 temuan Demile setujui
+const BUILD = '20261106-1925';
+/* BUILD 20261106-1925 — sapuan audit 6 Nov (12 temuan Demile setujui
    dikerjakan): kamera bertabrakan (tembok/kubah/danau), kartu info
    pakai jarak segi empat petak + D4 jadi kartu Akuarium tetap, NPC
    berhenti memberi jalan kereta, bunga disaring dari sapuan rel,
@@ -713,6 +713,25 @@ function makeTrain(track, stops, opt){
               au: { rumbleGain: null, nextKlik: 0 },
               board: { cv: bCv, tex: bTex, spr: bSpr, last: -1 },
               pos(){ return track.at(T.s); } };
+  /* Susun garis waktu satu putaran, mulai dari fase awal kereta:
+     berhenti di stasiun yang dilewati titik fase, lalu jalan ke
+     stasiun berikutnya, berhenti, dan seterusnya sampai kembali. */
+  {
+    const total = track.total, sp = T.stopsAt, n = sp.length;
+    let i0 = 0, bd = Infinity;
+    sp.forEach((sv, i)=>{ const d = (sv - T.s + total) % total; if(d < bd){ bd = d; i0 = i; } });
+    const segmen = [];
+    let cur = sp[i0];
+    segmen.push({ jenis: 'berhenti', s: cur, dur: LAMA_BERHENTI });
+    for(let k = 1; k <= n; k++){
+      const nxt = sp[(i0 + k) % n];
+      const jarak = (nxt - cur + total) % total;
+      segmen.push({ jenis: 'jalan', dari: cur, dur: jarak / LAJU_KERETA });
+      segmen.push({ jenis: 'berhenti', s: nxt, dur: LAMA_BERHENTI });
+      cur = nxt;
+    }
+    T.siklus = { segmen, total: segmen.reduce((a, s)=> a + s.dur, 0) };
+  }
   return T;
 }
 function gambarPapanHitung(T, n){
@@ -750,6 +769,30 @@ const ALL_TRAINS = [
 window.ZOO_TRAINS = ALL_TRAINS;
 /* Kereta berhenti 15 detik di tiap stasiun: waktu penumpang naik-turun bergantian */
 const LAMA_BERHENTI = 15;
+/* SINKRON ANTAR PERANGKAT (perbaikan 6 Nov malam, laporan Demile: "gak
+   sinkron — HP ga ada kereta, PC ada kereta" padahal waktu sama):
+   posisi kereta TIDAK lagi diakumulasi dari jam lokal tiap perangkat
+   (T.s += dt — fase bergantung kapan halaman dimuat, dan tab latar
+   membeku membuat jamnya tertinggal makin jauh), melainkan fungsi
+   murni WAKTU DINDING yang sama di semua perangkat (Date.now()).
+   Satu putaran penuh dibagi segmen menyambung: jalan antar stasiun
+   (jarak rel / 8,5) diselingi berhenti 15 dtk di tiap stasiun; fase
+   di dalam putaran menentukan s + sisa berhenti secara tertutup. */
+const LAJU_KERETA = 8.5;
+function statusSiklusKereta(T, tDtk){
+  const sg = T.siklus.segmen;
+  let f = tDtk % T.siklus.total;
+  if(f < 0) f += T.siklus.total;
+  for(const s of sg){
+    if(f < s.dur){
+      if(s.jenis === 'berhenti') return { s: s.s, dwell: s.dur - f };
+      return { s: s.dari + LAJU_KERETA * f, dwell: 0 };
+    }
+    f -= s.dur;
+  }
+  const t = sg[sg.length - 1];
+  return { s: t.jenis === 'berhenti' ? t.s : t.dari, dwell: 0 };
+}
 /* Pemain vs kereta: rangkaian itu PADAT (tidak bisa ditembus pemain),
    dan bisa DINAIKI saat berhenti di stasiun. Penumpang berdiri di
    gerbong tengah; turun hanya saat kereta berhenti di stasiun lagi. */
@@ -972,26 +1015,19 @@ function updateSuaraKereta(T){
 }
 const TRAINS = {
   update(dt){
-    for(const tr of [TRACK_WISATA, TRACK_SAFARI]) if(tr.dwell > 0) tr.dwell -= dt;
+    /* Jam dinding bersama: semua perangkat menghitung posisi yang
+       sama pada detik yang sama, kapan pun halamannya dimuat. Sinyal
+       suara (rem saat tiba, bel sebelum berangkat) dipicu dari
+       transisi fase yang terdeteksi antar bingkai. */
+    const tDtk = Date.now() / 1000;
     for(const T of ALL_TRAINS){
       const track = T.track;
-      if(track.dwell > 0 && track.dwell <= 1.2 && !track.sinyal){
-        /* Isyarat berangkat: sekali saja, sesaat sebelum berhenti berakhir */
-        track.sinyal = true;
-        sfxBerangkat(T);
-      }
-      if(track.dwell <= 0){
-        T.s += dt * 8.5;
-        for(const st of T.stopsAt){
-          const d = Math.abs(((T.s - st) % track.total + track.total) % track.total);
-          if(d < .4 && !T.doneStops.has(st)){
-            track.dwell = LAMA_BERHENTI; T.doneStops.add(st);
-            track.sinyal = false;
-            sfxRem(T);
-          }
-          if(d > 6) T.doneStops.delete(st);
-        }
-      }
+      const st = statusSiklusKereta(T, tDtk);
+      const dwellLama = track.dwell;
+      T.s = st.s;
+      track.dwell = st.dwell;
+      if(st.dwell > 0 && dwellLama <= 0) sfxRem(T);
+      if(st.dwell > 0 && st.dwell <= 1.2 && dwellLama > 1.2) sfxBerangkat(T);
       T.cars.forEach((c, i)=>{
         const p = track.at(T.s - i * 5.6);
         c.position.set(p.x, 0, p.z);
